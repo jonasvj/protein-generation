@@ -25,10 +25,10 @@ test_data = torch.load('../../data/processed/test_data.pt')
 
 #==Training loop=================================
 #Hyper-parameters
-num_epochs = 100
+num_epochs = 5
 
 #Loss function and optimizer
-criterion = torch.nn.CrossEntroopyLoss()
+criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(net.parameters(), lr = 0.001)
 
 #Track loss
