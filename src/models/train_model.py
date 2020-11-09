@@ -14,14 +14,17 @@ from create_datasets import SequenceDataset
 train_data = torch.load('../../data/processed/train_data.pt')
 val_data = torch.load('../../data/processed/val_data.pt')
 test_data = torch.load('../../data/processed/test_data.pt')
+data = torch.load('../../data/processed/data.pt')
+
+n_amino_acids = len(data.amino_acids)
 
 #==Import network models=========================
-#Gru network
+from gru_network import GRUModel
 #LSTM network
 #Transformer network
 
 #Choose network model
-#net = 
+net = GRUModel(n_amino_acids, n_amino_acids, 50, 2)
 
 #==Training loop=================================
 #Hyper-parameters
@@ -46,6 +49,9 @@ for i in range(num_epochs):
     #For each protein in the validation set
     for inputs, targets in val_data:
 
+        inputs = torch.tensor(inputs).unsqueeze(1)
+        targets = torch.tensor(targets)
+
         #Forward pass
         outputs = net(inputs)
 
@@ -58,6 +64,9 @@ for i in range(num_epochs):
     net.train()
 
     for inputs, targets in train_data:
+
+        inputs = torch.tensor(inputs).unsqueeze(1)
+        targets = torch.tensor(targets)
 
         #Forward pass
         outputs = net.forward(inputs)
@@ -78,5 +87,5 @@ for i in range(num_epochs):
     validation_loss.append(epoch_validation_loss / len(val_data))
 
     # Print loss every 10 epochs
-    if i % 10 == 0:
+    if i % 1 == 0:
         print(f'Epoch {i}, training loss: {training_loss[-1]}, validation loss: {validation_loss[-1]}')
