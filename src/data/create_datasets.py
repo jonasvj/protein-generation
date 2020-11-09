@@ -66,3 +66,4 @@ if __name__ == '__main__':
     torch.save(train_data, '../../data/processed/train_data.pt')
     torch.save(val_data, '../../data/processed/val_data.pt')
     torch.save(test_data, '../../data/processed/test_data.pt')
+
