@@ -1,40 +1,82 @@
 #!/usr/bin/env python3
+#==Initializtion=================================
 import torch
 import numpy as np
 import pandas as pd
 from torch.utils import data
+import sys
 
-class SequenceDataset(data.Dataset):
-    def __init__(self, sequences):
-        self.sequences = sequences
-        self.amino_acids = np.unique(list(''.join(self.sequences)))
+sys.path.append('../data')
 
-        self.aa_to_idx = {self.amino_acids[i]: i
-                          for i in range(len(self.amino_acids))}
+from create_datasets import SequenceDataset
 
-        self.idx_to_aa = {i: self.amino_acids[i]
-                          for i in range(len(self.amino_acids))}
-
-        self.inputs, self.targets = self.encode_sequences()
-
-    def encode_sequences(self):
-        inputs = list()
-        targets = list()
-        for sequence in self.sequences:
-            encoded_sequence = [self.aa_to_idx[aa] for aa in sequence]
-            inputs.append(encoded_sequence[:-1])
-            targets.append(encoded_sequence[1:])
-        
-        return inputs, targets
-
-    def __len__(self):
-        # Return the number of sequences
-        return len(self.targets)
-
-    def __getitem__(self, idx):
-        # Retrieve inputs and targets at the given index
-        return self.inputs[idx], self.targets[idx]
-
+#==Load data=====================================
 train_data = torch.load('../../data/processed/train_data.pt')
-print(train_data[0])
+val_data = torch.load('../../data/processed/val_data.pt')
+test_data = torch.load('../../data/processed/test_data.pt')
 
+#==Import network models=========================
+#Gru network
+#LSTM network
+#Transformer network
+
+#Choose network model
+#net = 
+
+#==Training loop=================================
+#Hyper-parameters
+num_epochs = 100
+
+#Loss function and optimizer
+criterion = torch.nn.CrossEntroopyLoss()
+optimizer = torch.optim.Adam(net.parameters(), lr = 0.001)
+
+#Track loss
+training_loss, validation_loss = [], []
+
+#For each epoch
+for i in range(num_epochs):
+
+    #Track loss
+    epoch_training_loss = 0
+    epoch_validation_loss = 0
+
+    net.eval()
+
+    #For each protein in the validation set
+    for inputs, targets in val_data:
+
+        #Forward pass
+        outputs = net(inputs)
+
+        #Compute loss
+        loss = criterion(outputs, targets)
+
+        #Update loss
+        epoch_validation_loss += loss.detach().numpy()
+
+    net.train()
+
+    for inputs, targets in train_data:
+
+        #Forward pass
+        outputs = net.forward(inputs)
+
+        #Compute loss
+        loss = criterion(outputs, targets)
+
+        #Backward pass
+        optimizer.zero_grad()
+        loss.backward ()
+        optimizer.step()
+
+        #Update loss
+        epoch_training_loss += loss.detach().numpy()
+
+    #Save loss
+    training_loss.append(epoch_training_loss / len(train_data))
+    validation_loss.append(epoch_validation_loss / len(val_data))
+
+    # Print loss every 10 epochs
+    if i % 10 == 0:
+        print(f'Epoch {i}, training loss: {training_loss[-1]}, validation loss: {validation_loss[-1]}')
