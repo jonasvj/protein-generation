@@ -45,26 +45,24 @@ if __name__ == '__main__':
     # Filter data 
     # (for example by organism, protein family, keywords)
     organism_filter = [559292]
-    protein_fam_filter = ['PF00001', 'PF00002']
-    filtered_data = raw_data[raw_data['organism_id'].isin(organism_filter)]
+    protein_fam_filter = []
 
+    filtered_data = raw_data.copy()
+    if len(organism_filter) != 0:
+        filtered_data = filtered_data[filtered_data['organism_id'].isin(
+            organism_filter)]
+    
+    if len(protein_fam_filter) != 0:
+        filtered_data = filtered_data[filtered_data['pfam'].isin(
+            protein_fam_filter)]
+    
     data_set = SequenceDataset(filtered_data['sequence'])
 
     # Split data sets into train, validation and test
     train_data, val_data, test_data = data.random_split(data_set,
-                                                        [4000, 1000, 1721])
+                                                        [4000, 1721, 1000])
     
     # Save data sets
     torch.save(train_data, '../../data/processed/train_data.pt')
     torch.save(val_data, '../../data/processed/val_data.pt')
     torch.save(test_data, '../../data/processed/test_data.pt')
-
-
-
-  
-
-
-
-
-
-
