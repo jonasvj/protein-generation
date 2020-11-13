@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
+import os
+import subprocess
 import urllib.parse
 import urllib.request
 
 if __name__ == '__main__':
 
-    url = 'https://www.uniprot.org/uniprot/?'
+    repo_dir = subprocess.run(
+        ['git', 'rev-parse', '--show-toplevel'],
+        stdout=subprocess.PIPE).stdout.decode().strip()
+    
+    url = 'https://www.uniprot.org/'
 
     # Get UniProt table with protein sequences
     params = {
@@ -14,10 +20,13 @@ if __name__ == '__main__':
                    'keywords,database(Pfam),sequence'}
 
     query = urllib.parse.urlencode(params)
-    urllib.request.urlretrieve(url + query,
-        '../../data/raw/uniprot_table.txt')
+    
+    urllib.request.urlretrieve(
+        url + 'uniprot/?' + query,
+        os.path.join(repo_dir, 'data/raw/uniprot_table.txt'))
 
     # Get table with UniProt keywords
-    urllib.request.urlretrieve('https://www.uniprot.org/keywords/?query=*&'
-                               'format=tab&force=true&columns=id',
-                               '../../data/raw/uniprot_keywords.txt')
+    urllib.request.urlretrieve(
+        url + 'keywords/?' + 'query=*&format=tab&force=true&columns=id''
+        os.path.join(repo_dir, 'data/raw/uniprot_keywords.txt'))
+    

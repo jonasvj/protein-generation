@@ -25,7 +25,8 @@ class GRUModel(nn.Module):
         output = self.drop(output)
         decoded = self.decoder(output)
         decoded = decoded.view(-1, self.ntoken)
-        return F.softmax(decoded, dim=1)
+        #return F.softmax(decoded, dim=1)
+        return decoded
 
 if __name__ == '__main__':
 
