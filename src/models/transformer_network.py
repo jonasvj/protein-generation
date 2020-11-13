@@ -29,7 +29,7 @@ class TransformerModel(nn.Module):
         """
         ntoken: Size of dictionary of embeddings (20 for amino acids)
         ninp: Number of expected features in input, size of embedding layer
-        nhead: Number of heads in the multiheadattention models
+        nhead: Number of heads in the multi-headed attention models
         nhid: Dimension of the feedforward neural network
         nlayers: Number of layers
         """
@@ -54,10 +54,11 @@ class TransformerModel(nn.Module):
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, input_, src_mask):
+    def forward(self, input_):
+        mask = self._generate_square_subsequent_mask(len(input_)).to(device)
         src = self.encoder(input_) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        output = self.transformer_encoder(src, src_mask)
+        output = self.transformer_encoder(src, mask)
         output = self.decoder(output)
         return output
 
