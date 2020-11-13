@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     # Choose network model
     n_amino_acids = len(train_data.amino_acids)
-    net = GRUModel(n_amino_acids, n_amino_acids, 500, 3, dropout=0)
+    net = GRUNet(n_amino_acids, n_amino_acids, 500, 3, dropout=0)
     if torch.cuda.is_available():
         net.cuda()
 
