@@ -6,12 +6,13 @@ import pandas as pd
 from torch.utils import data
 from gru_network import GRUNet
 from lstm_network import LSTMNet
+from transformer_network import TransformerModel
 import subprocess
 
 class SequenceDataset(data.Dataset):
     def __init__(self, sequences):
-        self.sequences = sequences
-        self.amino_acids = np.unique(list(''.join(self.sequences)))
+        super(SequenceDataset, self).__init__()
+        self.amino_acids = np.unique(list(''.join(sequences)))
 
         self.aa_to_idx = {self.amino_acids[i]: i
                           for i in range(len(self.amino_acids))}
@@ -19,17 +20,15 @@ class SequenceDataset(data.Dataset):
         self.idx_to_aa = {i: self.amino_acids[i]
                           for i in range(len(self.amino_acids))}
 
-        self.inputs, self.targets = self.encode_sequences()
+        self.inputs, self.targets = self.encode_sequences(sequences)
 
-    def encode_sequences(self):
+    def encode_sequences(self, sequences):
         inputs = list()
         targets = list()
-        for sequence in self.sequences:
+        for sequence in sequences:
             encoded_sequence = [self.aa_to_idx[aa] for aa in sequence]
-
-            input_ = torch.tensor(
-                encoded_sequence[:-1]).unsqueeze(1).to(device='cuda')
-            target = torch.tensor(encoded_sequence[1:]).to(device='cuda')
+            input_ = torch.tensor(encoded_sequence[:-1])
+            target = torch.tensor(encoded_sequence[1:])
 
             inputs.append(input_)
             targets.append(target)
@@ -49,6 +48,11 @@ if __name__ == '__main__':
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
+
+    if torch.torch.cuda.is_available():
+        device = 'cuda:0'
+    else:
+        device = 'cpu'
     
     # Load data
     df_train = pd.read_csv(
@@ -59,11 +63,20 @@ if __name__ == '__main__':
     train_data = SequenceDataset(df_train['sequence'])
     val_data = SequenceDataset(df_train['sequence'])
 
+    train_loader = data.DataLoader(train_data, batch_size=1,
+                                   shuffle=True, pin_memory=True,
+                                   prefetch_factor=20,
+                                   num_workers=6)
+    
+    val_loader = data.DataLoader(val_data, batch_size=1,
+                                 shuffle=False, pin_memory=True,
+                                 prefetch_factor=20,
+                                 num_workers=6)
+    
     # Choose network model
     n_amino_acids = len(train_data.amino_acids)
     net = GRUNet(n_amino_acids, n_amino_acids, 500, 3, dropout=0)
-    if torch.cuda.is_available():
-        net.cuda()
+    net = net.to(device=device)
 
     # Hyper-parameters
     num_epochs = 50
@@ -76,15 +89,16 @@ if __name__ == '__main__':
     train_loss, val_loss = [], []
 
     for i in range(num_epochs):
-        print(i)
         # Track loss
-        epoch_training_loss = 0
-        epoch_validation_loss = 0
+        epoch_train_loss = 0
+        epoch_val_loss = 0
 
         net.eval()
 
         # For each protein in the validation set
-        for inputs, targets in val_data:
+        for inputs, targets in val_loader:
+            inputs = inputs.to(device).permute(1, 0)
+            targets = targets.to(device).squeeze()
 
             # Forward pass
             outputs = net(inputs)
@@ -93,11 +107,13 @@ if __name__ == '__main__':
             loss = criterion(outputs, targets)
 
             # Update loss
-            epoch_validation_loss += loss.detach().cpu().numpy()
+            epoch_val_loss += loss.detach().cpu().numpy()
 
         net.train()
 
-        for inputs, targets in train_data:
+        for inputs, targets in train_loader:
+            inputs = inputs.to(device).permute(1, 0)
+            targets = targets.to(device).squeeze()
 
             # Forward pass
             outputs = net.forward(inputs)
@@ -111,12 +127,12 @@ if __name__ == '__main__':
             optimizer.step()
 
             # Update loss
-            epoch_training_loss += loss.detach().cpu().numpy()
+            epoch_train_loss += loss.detach().cpu().numpy()
 
         # Save loss
-        train_loss.append(epoch_training_loss / len(train_data))
-        val_loss.append(epoch_validation_loss / len(val_data))
+        train_loss.append(epoch_train_loss / len(train_data))
+        val_loss.append(epoch_val_loss / len(val_data))
 
         # Print loss every 10 epochs
         if i % 1 == 0:
-            print(f'Epoch {i}, training loss: {training_loss[-1]}, validation loss: {validation_loss[-1]}')
+            print(f'Epoch {i}, training loss: {train_loss[-1]}, validation loss: {val_loss[-1]}')
