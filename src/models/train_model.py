@@ -4,7 +4,8 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils import data
-from gru_network import GRUModel
+from gru_network import GRUNet
+from lstm_network import LSTMNet
 import subprocess
 
 class SequenceDataset(data.Dataset):
