@@ -5,37 +5,6 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-class SequenceDataset(data.Dataset):
-    def __init__(self, sequences):
-        self.sequences = sequences
-        self.amino_acids = np.unique(list(''.join(self.sequences)))
-
-        self.aa_to_idx = {self.amino_acids[i]: i
-                          for i in range(len(self.amino_acids))}
-
-        self.idx_to_aa = {i: self.amino_acids[i]
-                          for i in range(len(self.amino_acids))}
-
-        self.inputs, self.targets = self.encode_sequences()
-
-    def encode_sequences(self):
-        inputs = list()
-        targets = list()
-        for sequence in self.sequences:
-            encoded_sequence = [self.aa_to_idx[aa] for aa in sequence]
-            inputs.append(encoded_sequence[:-1])
-            targets.append(encoded_sequence[1:])
-        
-        return inputs, targets
-
-    def __len__(self):
-        # Return the number of sequences
-        return len(self.targets)
-
-    def __getitem__(self, idx):
-        # Retrieve inputs and targets at the given index
-        return self.inputs[idx], self.targets[idx]
-
 def random_split(df, props, seed=42):
     """Randomly splits data frame into defined proportions.
     
@@ -67,29 +36,34 @@ if __name__ == '__main__':
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
-    
+
+    #Load data and rename columns
     raw_data = pd.read_csv(
-        os.path.join(repo_dir, 'data/raw/uniprot_table.txt'), sep='\t')
-    
-    # Rename columns 
+        os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), sep='\t')
+
     raw_data.columns = ['entry', 'entry_name', 'protein_names', 'organism_id',
-                        'keywords', 'pfam', 'sequence']
+                        'keywords', 'pfam', 'sequence', 'insulin']
 
-    # Filter data 
-    organism_filter = [559292]
-    protein_fam_filter = []
-    filtered_data = raw_data.copy()
+    #Filter data
+    filtered_data = raw_data[raw_data['insulin'] == 'Yes']
+    not_insulin_data = raw_data[raw_data['insulin'] == 'No']
+    not_insulin_data = not_insulin_data.sample(n = len(filtered_data))
 
-    if len(organism_filter) != 0:
-        filtered_data = filtered_data[filtered_data['organism_id'].isin(
-            organism_filter)]
-    
-    if len(protein_fam_filter) != 0:
-        filtered_data = filtered_data[filtered_data['pfam'].isin(
-            protein_fam_filter)]
-    
+    filtered_data = filtered_data.append(not_insulin_data)
+
+    """
+    organisms = list(set(list(not_insulin_data['organism_id'])))
+    n = 50
+
+    for Id in organisms:
+        df_organism = not_insulin_data[not_insulin_data['organism_id'] == Id]
+        if len(df_organism) >= n:
+            df_organism = df_organism.sample(n=n)
+        filtered_data = filtered_data.append(df_organism)
+    """
+
     # Keep only entry ID and sequence
-    filtered_data = filtered_data[['entry','sequence']]
+    filtered_data = filtered_data[['entry', 'keywords', 'insulin', 'sequence']]
   
     # Split data into train, validation and test
     train_df, val_df, test_df = random_split(filtered_data, [0.8, 0.1, 0.1])
