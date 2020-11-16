@@ -10,7 +10,7 @@ if __name__ == '__main__':
         stdout=subprocess.PIPE).stdout.decode().strip()
     
     data_file = open(
-        os.path.join(repo_dir, 'data/raw/uniprot_table.txt'), 'r')
+        os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), 'r')
     
     keyword_file = open(
         os.path.join(repo_dir, 'data/raw/uniprot_keywords.txt'), 'r')
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     tidy_data_file.write('\t'.join(new_header) + '\n')
     
     for line in data_file:
-        id_, name, prot, organism, kws, pfams, seq = line.strip().split('\t')
+        id_, name, prot, organism, kws, pfams, seq, insulin = line.strip().split('\t')
         pfams = pfams.strip(';').split(';')
         kws = kws.strip(';').split(';')
         
@@ -83,7 +83,7 @@ if __name__ == '__main__':
                 organism,
                 *[row_values[column] for column
                   in kw_cats_filtered + ['pfams']],
-                seq)
+                seq, insulin)
             
             new_row = new_row.strip('\t') + '\n'
             tidy_data_file.write(new_row)
