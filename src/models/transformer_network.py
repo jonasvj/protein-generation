@@ -55,7 +55,7 @@ class TransformerModel(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input_):
-        mask = self._generate_square_subsequent_mask(len(input_)).to(device)
+        mask = self.generate_square_subsequent_mask(len(input_)).to(input_.device)
         src = self.encoder(input_) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, mask)

@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils import data
-from gru_network import GRUNet
+from gru_batch import GRUNet
 from lstm_network import LSTMNet
 from transformer_network import TransformerModel
 from transformer_network2 import TransformerModel as TransformerModel2
@@ -17,8 +17,9 @@ class SequenceDataset(data.Dataset):
         super(SequenceDataset, self).__init__()
         self.amino_acids = np.unique(list(''.join(sequences)))
 
-        self.aa_to_idx = {self.amino_acids[i]: i
-                          for i in range(len(self.amino_acids))}
+        self.aa_to_idx = {self.amino_acids[i-1]: i
+                          for i in range(1, len(self.amino_acids) + 1)}
+        self.aa_to_idx['<PAD>'] = 0
 
         self.idx_to_aa = {i: self.amino_acids[i]
                           for i in range(len(self.amino_acids))}
@@ -30,8 +31,8 @@ class SequenceDataset(data.Dataset):
         targets = list()
         for sequence in sequences:
             encoded_sequence = [self.aa_to_idx[aa] for aa in sequence]
-            input_ = torch.tensor(encoded_sequence[:-1])
-            target = torch.tensor(encoded_sequence[1:])
+            input_ = encoded_sequence[:-1]
+            target = encoded_sequence[1:]
 
             inputs.append(input_)
             targets.append(target)
@@ -46,6 +47,22 @@ class SequenceDataset(data.Dataset):
         # Retrieve inputs and targets at the given index
         return self.inputs[idx], self.targets[idx]
 
+def custom_collate_fn(batch):
+    """How to return a batch from the data loader"""
+    batch.sort(key=lambda seq: len(seq[0]), reverse=True)
+    inputs, targets = zip(*batch)
+    input_lengths = [len(input_) for input_ in inputs]
+
+    input_tensor = torch.zeros((max(input_lengths), len(inputs))).long()
+    target_tensor = torch.zeros((max(input_lengths), len(inputs))).long()
+
+    for i, length in enumerate(input_lengths):
+            input_tensor[0:length, i] = torch.LongTensor(inputs[i][:])
+            target_tensor[0:length, i] = torch.LongTensor(targets[i][:])
+            
+    return input_tensor, input_lengths, target_tensor
+
+
 if __name__ == '__main__':
 
     repo_dir = subprocess.run(
@@ -56,26 +73,28 @@ if __name__ == '__main__':
         device = 'cuda:0'
     else:
         device = 'cpu'
-    print(device)
+    
     # Load data
     df_train = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/train_data.txt'), sep='\t')
     df_val = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t')
 
-    train_data = SequenceDataset(df_train['sequence'][:100])
-    val_data = SequenceDataset(df_val['sequence'][:100])
+    train_data = SequenceDataset(df_train['sequence'])
+    val_data = SequenceDataset(df_val['sequence'])
 
-    train_loader = data.DataLoader(train_data, batch_size=1, shuffle=True,
-                                   pin_memory=True, num_workers=4)
+    train_loader = data.DataLoader(train_data, batch_size=64, shuffle=True,
+                                   pin_memory=True, num_workers=4,
+                                   collate_fn=custom_collate_fn)
     
-    val_loader = data.DataLoader(val_data, batch_size=1, shuffle=False,
-                                 pin_memory=True, num_workers=4)
+    val_loader = data.DataLoader(val_data, batch_size=64, shuffle=False,
+                                 pin_memory=True, num_workers=4,
+                                 collate_fn=custom_collate_fn)
     
     # Choose network model
-    n_amino_acids = len(train_data.amino_acids)
+    n_amino_acids = len(train_data.aa_to_idx)
     embedding_size = 20
-    hidden_size = 1000
+    hidden_size = 500
     n_gru_layers = 5
     net = GRUNet(n_amino_acids, embedding_size, hidden_size,
                  n_gru_layers, dropout=0, bidirectional=False)
@@ -87,8 +106,10 @@ if __name__ == '__main__':
     num_epochs = 100
 
     # Loss function and optimizer
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001)
+    criterion = torch.nn.CrossEntropyLoss(
+        ignore_index=train_data.aa_to_idx['<PAD>'], reduction='none')
+    
+    optimizer = torch.optim.Adam(net.parameters())
 
     # Track loss and perplexity
     train_loss, val_loss = [], []
@@ -101,16 +122,20 @@ if __name__ == '__main__':
         val_start = time.time()
         net.eval()
 
-        for inputs, targets in val_loader:
-            inputs = inputs.to(device).permute(1, 0)
-            targets = targets.to(device).squeeze()
-        
+        for inputs, input_lengths, targets in val_loader:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            print('input shape:', inputs.shape)
+            print('target shape:', targets.shape)
             # Forward pass
-            outputs = net(inputs)
+            outputs = net(inputs, input_lengths)
+            print('output shape', outputs.shape)
 
             # Compute loss
-            loss = criterion(outputs.squeeze(), targets)
-
+            loss = criterion(outputs, targets)
+            print(loss.shape)
+            
+            sys.exit(1)
             # Update loss
             epoch_val_loss += loss.detach().cpu().numpy()
         
@@ -119,15 +144,15 @@ if __name__ == '__main__':
         train_start = time.time()
         net.train()
 
-        for inputs, targets in train_loader:
-            inputs = inputs.to(device).permute(1, 0)
-            targets = targets.to(device).squeeze()
+        for inputs, input_lengths, targets in train_loader:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
 
             # Forward pass
-            outputs = net(inputs)
+            outputs = net(inputs, input_lengths)
 
             # Compute loss
-            loss = criterion(outputs.squeeze(), targets)
+            loss = criterion(outputs, targets)
 
             # Backward pass
             optimizer.zero_grad()
