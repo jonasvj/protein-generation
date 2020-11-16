@@ -9,14 +9,13 @@ if __name__ == '__main__':
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
-    """
+    
     url = 'https://www.uniprot.org/'
 
     # Get table with UniProt keywords
     urllib.request.urlretrieve(
         url + 'keywords/?' + 'query=*&format=tab&force=true&columns=id',
         os.path.join(repo_dir, 'data/raw/uniprot_keywords.txt'))
-
 
     # Get UniProt table with protein sequences (insulin in eukaryotes)
     params_insulin = {
@@ -43,7 +42,7 @@ if __name__ == '__main__':
     urllib.request.urlretrieve(
         url + 'uniprot/?' + query,
         os.path.join(repo_dir, 'data/raw/uniprot_table_not_insulin.txt'))
-    """
+    
     #Add 'insulin related' column to both files
     insulin_data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_insulin.txt'), 'r')
     insulin_edited = open(os.path.join(repo_dir, 'data/raw/insulin_table.txt'), 'w')
@@ -74,7 +73,7 @@ if __name__ == '__main__':
 
     insulin_edited = open(os.path.join(repo_dir, 'data/raw/insulin_table.txt'), 'r')
     not_insulin_edited = open(os.path.join(repo_dir, 'data/raw/not_insulin_table.txt'), 'r')
-    data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_data.txt'), 'w')
+    data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), 'w')
 
     for file in [insulin_edited, not_insulin_edited]:
         data.write(file.read())
