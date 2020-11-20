@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import subprocess
 from itertools import product
 
@@ -45,16 +46,16 @@ if __name__ == '__main__':
 
     # Create new header 
     new_header = (data_header[0:1] + data_header[3:4] +
-                  kw_cats_filtered + data_header[5:])              
+                  kw_cats_filtered + data_header[5:])
     tidy_data_file.write('\t'.join(new_header) + '\n')
     
     for line in data_file:
         id_, name, prot, organism, kws, pfams, seq, insulin = line.strip().split('\t')
-        pfams = pfams.strip(';').split(';')
+        #pfams = pfams.strip(';').split(';')
         kws = kws.strip(';').split(';')
         
-        # Skip sequences with no protein family or keywords
-        if pfams == [''] or kws == ['']:
+        # Skip sequences with no keywords
+        if kws == ['']:
             continue
         
         # Arrange keywords by categories
@@ -66,13 +67,13 @@ if __name__ == '__main__':
             if kw_cat in kw_cats_filtered:
                 kws_by_cat[kw_cat].append(kw)
         
-        # Skip if data is missing in any wanted category
+        # Skip if any keyword is missing. 
         for cat, kws in kws_by_cat.items():
             if len(kws) == 0:
                 continue
         
         # Add protein families to kws_by_cat dictionary
-        kws_by_cat['pfams'] = pfams
+        #kws_by_cat['pfams'] = pfams
         
         new_row_values = [dict(zip(kws_by_cat, values))
                           for values in product(*kws_by_cat.values())]
@@ -81,9 +82,8 @@ if __name__ == '__main__':
             new_row = ('{}\t'*len(new_header)).format(
                 id_,
                 organism,
-                *[row_values[column] for column
-                  in kw_cats_filtered + ['pfams']],
-                seq, insulin)
+                *[row_values[column] for column in kw_cats_filtered],
+                pfams, seq, insulin)
             
             new_row = new_row.strip('\t') + '\n'
             tidy_data_file.write(new_row)
