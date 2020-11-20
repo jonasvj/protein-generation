@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     #Load data and rename columns
     raw_data = pd.read_csv(
-        os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), sep='\t')
+        os.path.join(repo_dir, 'data/raw/uniprot_table_merged.txt'), sep='\t')
 
     raw_data.columns = ['entry', 'entry_name', 'protein_names', 'organism_id',
                         'keywords', 'pfam', 'sequence', 'insulin']

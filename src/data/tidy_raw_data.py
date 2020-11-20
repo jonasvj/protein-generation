@@ -10,7 +10,7 @@ if __name__ == '__main__':
         stdout=subprocess.PIPE).stdout.decode().strip()
     
     data_file = open(
-        os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), 'r')
+        os.path.join(repo_dir, 'data/raw/uniprot_table_merged.txt'), 'r')
     
     keyword_file = open(
         os.path.join(repo_dir, 'data/raw/uniprot_keywords.txt'), 'r')
