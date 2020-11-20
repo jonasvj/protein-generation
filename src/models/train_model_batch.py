@@ -13,33 +13,77 @@ from transformer_network2 import TransformerModel as TransformerModel2
 import subprocess
 
 class SequenceDataset(data.Dataset):
-    def __init__(self, sequences):
+    def __init__(self, entries, sequences, keywords, kw_method='permute'):
         super(SequenceDataset, self).__init__()
         self.amino_acids = np.unique(list(''.join(sequences)))
-        #self.keywords = np.unique......
-        self.tokens = self.amino_acids
+        self.keywords = np.unique(keywords)
+
+        self.tokens = np.hstack((self.amino_acids, self.keywords))
         
         self.token_to_idx = {self.tokens[i-2]: i
                           for i in range(2, len(self.tokens) + 2)}
         self.token_to_idx['<PAD>'] = 0
         self.token_to_idx['<EOS>'] = 1
 
-        self.idx_to_aa = {i: self.amino_acids[i]
-                          for i in range(len(self.amino_acids))}
+        self.idx_to_token = {self.token_to_idx[token]: token
+                             for token in self.token_to_idx}
 
-        self.inputs, self.targets = self.encode_sequences(sequences)
+        self.inputs, self.targets = self.encode_sequences(entries, sequences, keywords, kw_method)
 
-    def encode_sequences(self, sequences):
+    def encode_sequences(self, entries, sequences, keywords, kw_method):
         inputs = list()
         targets = list()
-        for sequence in sequences:
-            encoded_sequence = [self.token_to_idx[aa] for aa in sequence]
-            encoded_sequence.append(self.token_to_idx['<EOS>'])
-            input_ = encoded_sequence[:-1]
-            target = encoded_sequence[1:]
 
-            inputs.append(input_)
-            targets.append(target)
+        if kw_method == 'merge':
+            
+            for entry in entries.unique():
+                entry_idxs = np.where(entries == entry)[0]
+
+                # Keywords
+                entry_keywords = keywords[entry_idxs,:].flatten('F')
+                # Unique keywords preserving order
+                entry_keywords = entry_keywords[np.sort(
+                    np.unique(entry_keywords, return_index=True)[1])]
+                encoded_keywords = [self.token_to_idx[kw]
+                                    for kw in entry_keywords]
+                
+                # Sequence 
+                entry_sequence = sequences[entry_idxs[0]]
+                encoded_sequence = [self.token_to_idx[token]
+                                    for token in entry_sequence]
+                encoded_sequence.append(self.token_to_idx['<EOS>'])
+                
+                # Use keywords and sequence as input
+                combined_input = encoded_keywords + encoded_sequence
+                
+                input_ = combined_input[:-1]
+                target = combined_input[1:]
+
+                inputs.append(input_)
+                targets.append(target)
+        
+        elif kw_method == 'permute':
+
+            for i in range(len(sequences)):
+                # Keywords
+                entry_keywords = keywords[i,:]
+                encoded_keywords = [self.token_to_idx[kw]
+                                    for kw in entry_keywords]
+                
+                # Sequence
+                entry_sequence = sequences[i]
+                encoded_sequence = [self.token_to_idx[token]
+                                    for token in entry_sequence]
+                encoded_sequence.append(self.token_to_idx['<EOS>'])
+
+                # Use keywords and sequence as input
+                combined_input = encoded_keywords + encoded_sequence
+                
+                input_ = combined_input[:-1]
+                target = combined_input[1:]
+
+                inputs.append(input_)
+                targets.append(target)
         
         return inputs, targets
 
@@ -83,12 +127,14 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'data/processed/train_data.txt'), sep='\t')
     df_val = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t')
-
-    train_data = SequenceDataset(df_train['sequence'][:1000])
-    val_data = SequenceDataset(df_val['sequence'][:100])
+    
+    print(len(df_train['sequence'][:500]))
+    
+    train_data = SequenceDataset(df_train['entry'][:500], df_train['sequence'][:500], df_train[['bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge')
+    val_data = SequenceDataset(df_val['entry'][:500], df_val['sequence'][:500], df_val[['bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge')
 
     mb_size=64
-
+    
     train_loader = data.DataLoader(train_data, batch_size=mb_size, shuffle=True,
                                    pin_memory=True, num_workers=4,
                                    collate_fn=custom_collate_fn)
