@@ -16,10 +16,13 @@ class SequenceDataset(data.Dataset):
     def __init__(self, sequences):
         super(SequenceDataset, self).__init__()
         self.amino_acids = np.unique(list(''.join(sequences)))
-
-        self.aa_to_idx = {self.amino_acids[i-1]: i
-                          for i in range(1, len(self.amino_acids) + 1)}
-        self.aa_to_idx['<PAD>'] = 0
+        #self.keywords = np.unique......
+        self.tokens = self.amino_acids
+        
+        self.token_to_idx = {self.tokens[i-2]: i
+                          for i in range(2, len(self.tokens) + 2)}
+        self.token_to_idx['<PAD>'] = 0
+        self.token_to_idx['<EOS>'] = 1
 
         self.idx_to_aa = {i: self.amino_acids[i]
                           for i in range(len(self.amino_acids))}
@@ -30,7 +33,8 @@ class SequenceDataset(data.Dataset):
         inputs = list()
         targets = list()
         for sequence in sequences:
-            encoded_sequence = [self.aa_to_idx[aa] for aa in sequence]
+            encoded_sequence = [self.token_to_idx[aa] for aa in sequence]
+            encoded_sequence.append(self.token_to_idx['<EOS>'])
             input_ = encoded_sequence[:-1]
             target = encoded_sequence[1:]
 
@@ -83,20 +87,22 @@ if __name__ == '__main__':
     train_data = SequenceDataset(df_train['sequence'])
     val_data = SequenceDataset(df_val['sequence'])
 
-    train_loader = data.DataLoader(train_data, batch_size=64, shuffle=True,
+    mb_size=64
+
+    train_loader = data.DataLoader(train_data, batch_size=mb_size, shuffle=True,
                                    pin_memory=True, num_workers=4,
                                    collate_fn=custom_collate_fn)
     
-    val_loader = data.DataLoader(val_data, batch_size=64, shuffle=False,
+    val_loader = data.DataLoader(val_data, batch_size=mb_size, shuffle=False,
                                  pin_memory=True, num_workers=4,
                                  collate_fn=custom_collate_fn)
     
     # Choose network model
-    n_amino_acids = len(train_data.aa_to_idx)
+    n_tokens = len(train_data.token_to_idx)
     embedding_size = 20
     hidden_size = 500
     n_gru_layers = 5
-    net = GRUNet(n_amino_acids, embedding_size, hidden_size,
+    net = GRUNet(n_tokens, embedding_size, hidden_size,
                  n_gru_layers, dropout=0, bidirectional=False)
     
     #net = TransformerModel(n_amino_acids, n_amino_acids, 10, 50, 2)
@@ -107,7 +113,7 @@ if __name__ == '__main__':
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
-        ignore_index=train_data.aa_to_idx['<PAD>'], reduction='none')
+        ignore_index=train_data.token_to_idx['<PAD>'])
     
     optimizer = torch.optim.Adam(net.parameters())
 
@@ -125,17 +131,12 @@ if __name__ == '__main__':
         for inputs, input_lengths, targets in val_loader:
             inputs = inputs.to(device)
             targets = targets.to(device)
-            print('input shape:', inputs.shape)
-            print('target shape:', targets.shape)
+
             # Forward pass
             outputs = net(inputs, input_lengths)
-            print('output shape', outputs.shape)
 
-            # Compute loss
-            loss = criterion(outputs, targets)
-            print(loss.shape)
-            
-            sys.exit(1)
+            loss = criterion(outputs.permute(1,2,0), targets.permute(1,0))
+
             # Update loss
             epoch_val_loss += loss.detach().cpu().numpy()
         
@@ -152,7 +153,7 @@ if __name__ == '__main__':
             outputs = net(inputs, input_lengths)
 
             # Compute loss
-            loss = criterion(outputs, targets)
+            loss = criterion(outputs.permute(1,2,0), targets.permute(1,0))
 
             # Backward pass
             optimizer.zero_grad()
@@ -165,8 +166,8 @@ if __name__ == '__main__':
         train_end = time.time()
 
         # Save loss
-        train_loss.append(epoch_train_loss / len(train_data))
-        val_loss.append(epoch_val_loss / len(val_data))
+        train_loss.append(epoch_train_loss / np.ceil(len(train_data)/mb_size))
+        val_loss.append(epoch_val_loss / np.ceil(len(val_data)/mb_size))
 
         # Print loss
         if i % 1 == 0:

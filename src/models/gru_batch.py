@@ -57,7 +57,7 @@ class GRUNet(nn.Module):
         output, _ = nn.utils.rnn.pad_packed_sequence(output)
 
         output = self.drop(output)
-        decoded = self.decoder(output).permute(0,2,1)
+        decoded = self.decoder(output)
 
         return decoded
 
