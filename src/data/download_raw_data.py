@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     insulin_edited = open(os.path.join(repo_dir, 'data/raw/insulin_table.txt'), 'r')
     not_insulin_edited = open(os.path.join(repo_dir, 'data/raw/not_insulin_table.txt'), 'r')
-    data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_eukaryote.txt'), 'w')
+    data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_merged.txt'), 'w')
 
     for file in [insulin_edited, not_insulin_edited]:
         data.write(file.read())
@@ -81,3 +81,8 @@ if __name__ == '__main__':
     data.close()
     insulin_edited.close()
     not_insulin_edited.close()
+
+    # Delete intermediate files
+    subprocess.run(['rm',
+        os.path.join(repo_dir, 'data/raw/insulin_table.txt'),
+        os.path.join(repo_dir, 'data/raw/not_insulin_table.txt')])
