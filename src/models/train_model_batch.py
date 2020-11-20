@@ -84,8 +84,8 @@ if __name__ == '__main__':
     df_val = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t')
 
-    train_data = SequenceDataset(df_train['sequence'])
-    val_data = SequenceDataset(df_val['sequence'])
+    train_data = SequenceDataset(df_train['sequence'][:1000])
+    val_data = SequenceDataset(df_val['sequence'][:100])
 
     mb_size=64
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     net = net.to(device=device)
 
     # Hyper-parameters
-    num_epochs = 100
+    num_epochs = 2
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
@@ -175,3 +175,5 @@ if __name__ == '__main__':
                 i, train_loss[-1], val_loss[-1]))
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
+    
+    torch.save(net.state_dict(), os.path.join(repo_dir, 'models/gru_network.pt'))
