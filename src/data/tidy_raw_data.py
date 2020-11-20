@@ -67,10 +67,16 @@ if __name__ == '__main__':
             if kw_cat in kw_cats_filtered:
                 kws_by_cat[kw_cat].append(kw)
         
-        # Skip if any keyword is missing. 
+        # Add token for missing keyword
+        n_kw_missing = 0
         for cat, kws in kws_by_cat.items():
             if len(kws) == 0:
-                continue
+                n_kw_missing += 1
+                kws_by_cat[cat].append('<UNK>')
+        
+        # Skip if all keywords are missing 
+        if n_kw_missing == len(kw_cats_filtered):
+            continue
         
         # Add protein families to kws_by_cat dictionary
         #kws_by_cat['pfams'] = pfams
