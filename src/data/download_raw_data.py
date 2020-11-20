@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # Get UniProt table with protein sequences (insulin in eukaryotes)
     params_insulin = {
-        'query': 'insulin taxonomy:"Eukaryota [2759]" AND reviewed:yes',
+        'query': 'database:(type:pfam pf00049) taxonomy:"Eukaryota [2759]"',
         'format': 'tab',
         'columns': 'id,entry name,protein names,organism-id,'
                    'keywords,database(Pfam),sequence'}
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     # Get UniProt table with protein sequences (not insulin in eukaryotes)
     params_not_insulin = {
-        'query': 'NOT insulin taxonomy:"Eukaryota [2759]" AND reviewed:yes',
+        'query': 'NOT database:(type:pfam pf00049) taxonomy:"Eukaryota [2759]" AND reviewed:yes',
         'format': 'tab',
         'columns': 'id,entry name,protein names,organism-id,'
                    'keywords,database(Pfam),sequence'}
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     first = True
     for line in insulin_data:
         if first == True:
-            insulin_edited.write(line[:-1] + "\tRelated to insulin\n")
+            insulin_edited.write(line[:-1] + "\tInsulin\n")
             first = False
         else:
             insulin_edited.write(line[:-1] + "\tYes\n")
