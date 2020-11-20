@@ -51,7 +51,6 @@ if __name__ == '__main__':
     
     for line in data_file:
         id_, name, prot, organism, kws, pfams, seq, insulin = line.strip().split('\t')
-        #pfams = pfams.strip(';').split(';')
         kws = kws.strip(';').split(';')
         
         # Skip sequences with no keywords
@@ -63,7 +62,7 @@ if __name__ == '__main__':
         for kw in kws:
             kw_cat = kw_cat_dict[kw]
 
-            # Keep only wanted keywords
+            # Keep only keywords in wanted categories
             if kw_cat in kw_cats_filtered:
                 kws_by_cat[kw_cat].append(kw)
         
@@ -78,9 +77,6 @@ if __name__ == '__main__':
         if n_kw_missing == len(kw_cats_filtered):
             continue
         
-        # Add protein families to kws_by_cat dictionary
-        #kws_by_cat['pfams'] = pfams
-        
         new_row_values = [dict(zip(kws_by_cat, values))
                           for values in product(*kws_by_cat.values())]
         
@@ -89,7 +85,9 @@ if __name__ == '__main__':
                 id_,
                 organism,
                 *[row_values[column] for column in kw_cats_filtered],
-                pfams, seq, insulin)
+                pfams,
+                seq,
+                insulin)
             
             new_row = new_row.strip('\t') + '\n'
             tidy_data_file.write(new_row)
