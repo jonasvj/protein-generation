@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import random
 import subprocess
 import numpy as np
@@ -47,6 +48,12 @@ if __name__ == '__main__':
     #Filter data
     filtered_data = raw_data[raw_data['insulin'] == 'Yes']
     not_insulin_data = raw_data[raw_data['insulin'] == 'No']
+    sampled_entries = np.random.choice(not_insulin_data.entry.unique(),
+                                       size=len(filtered_data.entry.unique()),
+                                       replace=False)
+    not_insulin_data = not_insulin_data.loc[not_insulin_data['entry'].isin(sampled_entries)]
+    sys.exit(1)
+
     not_insulin_data = not_insulin_data.sample(n = len(filtered_data))
 
     filtered_data = filtered_data.append(not_insulin_data)
