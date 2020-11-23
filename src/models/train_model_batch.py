@@ -3,37 +3,71 @@ import os
 import sys
 import time
 import torch
+import subprocess
 import numpy as np
 import pandas as pd
 from torch.utils import data
 from gru_batch import GRUNet
 from lstm_network import LSTMNet
 from transformer_network import TransformerModel
-from transformer_network2 import TransformerModel as TransformerModel2
-import subprocess
+from collections import defaultdict
 
 class SequenceDataset(data.Dataset):
-    def __init__(self, entries, sequences, keywords, kw_method='permute'):
+    def __init__(self, entries, sequences, keywords, kw_method='permute',
+    include_rev=False, token_to_idx=None):
         super(SequenceDataset, self).__init__()
         self.amino_acids = np.unique(list(''.join(sequences)))
         self.keywords = np.unique(keywords)
-
-        self.tokens = np.hstack((self.amino_acids, self.keywords))
+        self.tokens = np.hstack((['<PAD>', '<UNK>', '<EOS>'],
+                                 self.amino_acids,
+                                 self.keywords))
         
-        self.token_to_idx = {self.tokens[i-2]: i
-                          for i in range(2, len(self.tokens) + 2)}
-        self.token_to_idx['<PAD>'] = 0
-        self.token_to_idx['<EOS>'] = 1
+        self.token_to_idx, self.idx_to_token = self.token_idx_map(token_to_idx)
 
-        self.idx_to_token = {self.token_to_idx[token]: token
-                             for token in self.token_to_idx}
+        self.inputs, self.targets = self.encode_sequences(entries,
+                                                          sequences,
+                                                          keywords,
+                                                          kw_method,
+                                                          include_rev)
+    
+    def token_idx_map(self, token_to_idx):
+        if token_to_idx is None:
+            token_to_idx = defaultdict(lambda: 1)
+            idx_to_token = defaultdict(lambda: '<UNK>')
+            for idx, token in enumerate(self.tokens):
+                token_to_idx[token] = idx
+                idx_to_token[idx] = token
+        else:
+            idx_to_token = defaultdict(lambda: '<UNK>')
+            for token, idx in token_to_idx.items():
+                idx_to_token[idx] = token
+        
+        return token_to_idx, idx_to_token
+    
+    def add_reverse(self, entries, sequences, keywords):
+        rev_sequences = np.empty(sequences.shape)
+        rev_entries = np.empty(entries.shape)
 
-        self.inputs, self.targets = self.encode_sequences(entries, sequences, keywords, kw_method)
+        for i, sequence in enumerate(sequences):
+            rev_sequences[i] = sequence[::-1]
+            rev_entries[i] = entries[i] + '_reverse'
+        
+        sequences = np.hstack((sequences, rev_sequences))
+        entries = np.hstack((entries, rev_entries))
+        keywords = np.vstack((keywords, keywords))
 
-    def encode_sequences(self, entries, sequences, keywords, kw_method):
+        return entries, sequences, keywords       
+    
+    def encode_sequences(self, entries, sequences, keywords, kw_method,
+    include_rev):
         inputs = list()
         targets = list()
 
+        if include_rev is True:
+            entries, sequences, keywords = self.add_reverse(entries,
+                                                            sequences,
+                                                            keywords)
+        
         if kw_method == 'merge':
             
             for entry in entries.unique():
@@ -58,10 +92,38 @@ class SequenceDataset(data.Dataset):
                 
                 input_ = combined_input[:-1]
                 target = combined_input[1:]
-
                 inputs.append(input_)
                 targets.append(target)
         
+        if kw_method == 'sample':
+
+            for entry in entries.unique():
+                entry_idxs = np.where(entries == entry)[0]
+
+                # Keywords
+                entry_keywords = keywords[entry_idxs,:]
+
+                # Sample a keyword in each category
+                entry_keywords = [np.random.choice(entry_keywords[:,j], 1)
+                                  for j in range(entry_keywords.shape[1])]
+
+                encoded_keywords = [self.token_to_idx[kw]
+                                    for kw in entry_keywords]
+                
+                # Sequence 
+                entry_sequence = sequences[entry_idxs[0]]
+                encoded_sequence = [self.token_to_idx[token]
+                                    for token in entry_sequence]
+                encoded_sequence.append(self.token_to_idx['<EOS>'])
+                
+                # Use keywords and sequence as input
+                combined_input = encoded_keywords + encoded_sequence
+                
+                input_ = combined_input[:-1]
+                target = combined_input[1:]
+                inputs.append(input_)
+                targets.append(target)
+
         elif kw_method == 'permute':
 
             for i in range(len(sequences)):
@@ -69,7 +131,7 @@ class SequenceDataset(data.Dataset):
                 entry_keywords = keywords[i,:]
                 encoded_keywords = [self.token_to_idx[kw]
                                     for kw in entry_keywords]
-                
+
                 # Sequence
                 entry_sequence = sequences[i]
                 encoded_sequence = [self.token_to_idx[token]
@@ -81,7 +143,6 @@ class SequenceDataset(data.Dataset):
                 
                 input_ = combined_input[:-1]
                 target = combined_input[1:]
-
                 inputs.append(input_)
                 targets.append(target)
         
