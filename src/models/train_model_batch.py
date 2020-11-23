@@ -187,18 +187,18 @@ if __name__ == '__main__':
     
     # Load data
     df_train = pd.read_csv(
-        os.path.join(repo_dir, 'data/processed/train_data.txt'), sep='\t')
+        os.path.join(repo_dir, 'data/processed/train_data.txt'), sep='\t', dtype = 'str')
     df_val = pd.read_csv(
-        os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t')
+        os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t', dtype = 'str')
     
-    train_data = SequenceDataset(entries=df_train['entry'][:500],
-                                 sequences=df_train['sequence'][:500],
-                                 keywords=df_train[['bp', 'cc', 'mf', 'insulin']].to_numpy(),
+    train_data = SequenceDataset(entries=df_train['entry'][:1000],
+                                 sequences=df_train['sequence'][:1000],
+                                 keywords=df_train[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(),
                                  kw_method='merge')
 
-    val_data = SequenceDataset(entries=df_val['entry'][:500],
-                               sequences=df_val['sequence'][:500], 
-                               keywords=df_val[['bp', 'cc', 'mf', 'insulin']].to_numpy(),
+    val_data = SequenceDataset(entries=df_val['entry'][:1000],
+                               sequences=df_val['sequence'][:1000], 
+                               keywords=df_val[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(),
                                kw_method='merge',
                                token_to_idx=train_data.token_to_idx)
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     net = net.to(device=device)
 
     # Hyper-parameters
-    num_epochs = 2
+    num_epochs = 10
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
@@ -293,10 +293,10 @@ if __name__ == '__main__':
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
-    torch.save(net.state_dict(), os.path.join(repo_dir, 'models/gru_network.pt'))
+    torch.save(net, os.path.join(repo_dir, 'models/gru_network.pt'))
 
-    token_to_idx_copy = defaultdict(lambda: 1)
-    idx_to_token_copy = defaultdict(lambda: '<UNK>')
+    token_to_idx_copy = dict()
+    idx_to_token_copy = dict()
 
     for key, value in train_data.token_to_idx.items():
         token_to_idx_copy[key] = value
