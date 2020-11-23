@@ -71,7 +71,7 @@ if __name__ == '__main__':
         for cat, kws in kws_by_cat.items():
             if len(kws) == 0:
                 n_kw_missing += 1
-                kws_by_cat[cat].append('<UNK>')
+                kws_by_cat[cat].append('None')
         
         # Skip if all keywords are missing 
         if n_kw_missing == len(kw_cats_filtered):
