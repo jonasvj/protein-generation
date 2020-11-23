@@ -12,8 +12,8 @@ import torch.nn.functional as f
 import nltk
 from collections import defaultdict
 from torch.utils import data
-from gru_batch import GRUNet
-from lstm_network import LSTMNet
+from gru import GruNet
+from lstm import LstmNet
 from transformer_network import TransformerModel
 from train_model_batch import SequenceDataset, custom_collate_fn
 
