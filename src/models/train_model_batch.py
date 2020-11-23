@@ -2,7 +2,9 @@
 import os 
 import sys
 import time
+import copy
 import torch
+import pickle
 import subprocess
 import numpy as np
 import pandas as pd
@@ -189,10 +191,16 @@ if __name__ == '__main__':
     df_val = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/val_data.txt'), sep='\t')
     
-    print(len(df_train['sequence'][:500]))
-    
-    train_data = SequenceDataset(df_train['entry'][:500], df_train['sequence'][:500], df_train[['bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge')
-    val_data = SequenceDataset(df_val['entry'][:500], df_val['sequence'][:500], df_val[['bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge')
+    train_data = SequenceDataset(entries=df_train['entry'][:500],
+                                 sequences=df_train['sequence'][:500],
+                                 keywords=df_train[['bp', 'cc', 'mf', 'insulin']].to_numpy(),
+                                 kw_method='merge')
+
+    val_data = SequenceDataset(entries=df_val['entry'][:500],
+                               sequences=df_val['sequence'][:500], 
+                               keywords=df_val[['bp', 'cc', 'mf', 'insulin']].to_numpy(),
+                               kw_method='merge',
+                               token_to_idx=train_data.token_to_idx)
 
     mb_size=64
     
@@ -226,6 +234,7 @@ if __name__ == '__main__':
 
     # Track loss and perplexity
     train_loss, val_loss = [], []
+    train_perplex, val_perplex = [], []
 
     for i in range(num_epochs):
         # Track loss
@@ -238,6 +247,7 @@ if __name__ == '__main__':
         for inputs, input_lengths, targets in val_loader:
             inputs = inputs.to(device)
             targets = targets.to(device)
+            print(inputs.shape)
 
             # Forward pass
             outputs = net(inputs, input_lengths)
@@ -284,3 +294,18 @@ if __name__ == '__main__':
                 round(train_end - train_start), round(val_end - val_start)))
     
     torch.save(net.state_dict(), os.path.join(repo_dir, 'models/gru_network.pt'))
+
+    token_to_idx_copy = defaultdict(lambda: 1)
+    idx_to_token_copy = defaultdict(lambda: '<UNK>')
+
+    for key, value in train_data.token_to_idx.items():
+        token_to_idx_copy[key] = value
+    
+    for key, value in train_data.idx_to_token.items():
+        idx_to_token_copy[key] = value
+    
+    with open(os.path.join(repo_dir, 'models/token_to_idx.pickle'), 'wb') as handle:
+        pickle.dump(token_to_idx_copy, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    with open(os.path.join(repo_dir, 'models/idx_to_token.pickle'), 'wb') as handle:
+        pickle.dump(idx_to_token_copy, handle, protocol=pickle.HIGHEST_PROTOCOL)
