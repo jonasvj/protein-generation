@@ -8,6 +8,7 @@ class LstmNet(nn.Module):
     def __init__(self, n_tokens, embedding_size, hidden_size, n_layers,
                  dropout=0.5, bidirectional=False):
         super(LstmNet, self).__init__()
+        self.model = "lstm"
         self.n_tokens = n_tokens
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
@@ -69,7 +70,7 @@ class LstmNet(nn.Module):
         # (batch, n_tokens, max_seq_length)
         decoded = decoded.permute(1,2,0)
 
-        return decoded, state
+        return {'output': decoded, 'hidden': state[0], 'cell': state[1]}
 
 if __name__ == '__main__':
 
@@ -87,6 +88,8 @@ if __name__ == '__main__':
     input_[0,:] = torch.LongTensor([1,2,3])
     input_lengths = [3]
 
-    output, state = net(input_, input_lengths)
-    print(output)
-    print(state)
+    output = net(input_, input_lengths)
+    print(output['output'])
+    print(output['hidden'])
+    print(output['cell'])
+

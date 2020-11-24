@@ -220,20 +220,23 @@ if __name__ == '__main__':
     
     # Choose network model
     n_tokens = len(train_data.token_to_idx)
-    embedding_size = 20
-    hidden_size = 500
-    n_layers = 5
+    embedding_size = 10
+    hidden_size = 250
+    n_layers = 4
 
     net = GruNet(n_tokens, embedding_size, hidden_size,
                  n_layers, dropout=0, bidirectional=False)
     
     #net = LstmNet(n_tokens, embedding_size, hidden_size,
     #             n_layers, dropout=0, bidirectional=False)
+    n_heads = 5
+    #net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
+    #    n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
     
     net = net.to(device=device)
 
     # Hyper-parameters
-    num_epochs = 2
+    num_epochs = 1000
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
@@ -259,8 +262,14 @@ if __name__ == '__main__':
             inputs = inputs.to(device)
             targets = targets.to(device)
 
+            if net.model == "transformer":
+                net_inputs = [inputs]
+            elif net.model in ['gru', 'lstm']:
+                net_inputs = [inputs, lengths]
+            
             # Forward pass
-            outputs, hidden = net(inputs, lengths)
+            output = net(*net_inputs)
+            outputs = output['output']
 
             loss = criterion(outputs, targets).detach().cpu().numpy()
 
@@ -277,8 +286,14 @@ if __name__ == '__main__':
             inputs = inputs.to(device)
             targets = targets.to(device)
 
+            if net.model == "transformer":
+                net_inputs = [inputs]
+            elif net.model in ['gru', 'lstm']:
+                net_inputs = [inputs, lengths]
+
             # Forward pass
-            outputs, hidden = net(inputs, lengths)
+            output = net(*net_inputs)
+            outputs = output['output']
 
             # Compute loss
             loss = criterion(outputs, targets)
