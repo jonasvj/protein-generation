@@ -236,7 +236,7 @@ if __name__ == '__main__':
     net = net.to(device=device)
 
     # Hyper-parameters
-    num_epochs = 1000
+    num_epochs = 100
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
