@@ -33,11 +33,12 @@ class CausalConv1d(torch.nn.Conv1d):
 
 class ResidualBlock(nn.Module):
     """Residual block of WaveNet architecture"""
-    def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-    dilation=1):
+    def __init__(self, in_channels, out_channels, n_global_tokens,
+    kernel_size=1, stride=1, dilation=1):
         super(ResidualBlock, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.n_global_tokens = n_global_tokens
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
@@ -54,20 +55,34 @@ class ResidualBlock(nn.Module):
                                         stride=self.stride,
                                         dilation=self.dilation)
         
+        self.filter_linear = nn.Linear(in_features=self.n_global_tokens,
+                                       out_features=self.in_channels)
+
+        self.gated_linear = nn.Linear(in_features=self.n_global_tokens,
+                                      out_features=self.in_channels)
+        
+        
         self._1x1_conv = nn.Conv1d(in_channels=self.in_channels,
                                   out_channels=self.out_channels,
                                   kernel_size=1,
                                   stride=1,
                                   dilation=1)
     
-    def forward(self, x):
+    def forward(self, x, h):
+        # Linear projections of global inputs
+        h_f = self.filter_linear(global_inputs).unsqueeze(2)
+        h_g = self.gated_linear(global_inputs).unsqueeze(2)
+
         # Filter convolution and gated convolution
-        x_f = torch.tanh(self.filter_conv(x))
-        x_g = torch.sigmoid(self.gated_conv(x))
+        x_f = self.filter_conv(x)
+        x_g = self.gated_conv(x)
+
+        z_f = torch.tanh(x_f + h_f)
+        z_g = torch.sigmoid(x_g + h_g)
         
         # Multiply filter convolution and gated convolution elementwise
-        skip = torch.mul(x_f, x_g)
-        skip = self._1x1_conv(skip)
+        z = torch.mul(z_f, z_g)
+        skip = self._1x1_conv(z)
 
         residual = x + skip
 
@@ -76,8 +91,8 @@ class ResidualBlock(nn.Module):
 class WaveNet(nn.Module):
     """Neural network with the WaveNet architecture"""
 
-    def __init__(self, n_tokens, embedding_size, n_dilations, kernel_size=2,
-    res_channels=16, f_channels=8, stride=1):
+    def __init__(self, n_tokens, embedding_size, n_dilations,
+    kernel_size=2, res_channels=16, f_channels=8, stride=1):
         super(WaveNet, self).__init__()
         self.model = 'wavenet'
         self.n_tokens = n_tokens
@@ -145,7 +160,7 @@ class WaveNet(nn.Module):
 
 if __name__ == '__main__':
 
-    n_tokens = 7
+    n_tokens = 10
     embedding_size = 3
     n_dilations = 2
     res_channels=16
@@ -156,6 +171,7 @@ if __name__ == '__main__':
         res_channels, f_channels)
 
     input_ = torch.tensor([1, 2, 3, 3, 4, 0, 0]).unsqueeze(0)
+    input_global = torch.tensor([5,6,7,8])
     output = net(input_)
     output = output['output']
     print(output)

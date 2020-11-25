@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from gru import GruNet
 from lstm import LstmNet
+from wawenet import WaveNet
 from torch.utils import data
 from collections import defaultdict
 from transformer import TransformerModel
@@ -195,20 +196,20 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'data/processed/val_data.txt'),
         sep='\t', dtype='str')
     
-    train_data = SequenceDataset(entries=df_train['entry'][:500],
-                                 sequences=df_train['sequence'][:500],
+    train_data = SequenceDataset(entries=df_train['entry'],
+                                 sequences=df_train['sequence'],
                                  keywords=df_train[['organism', 'bp', 'cc',
                                  'mf', 'insulin']].to_numpy(),
                                  kw_method='sample')
 
-    val_data = SequenceDataset(entries=df_val['entry'][:500],
-                               sequences=df_val['sequence'][:500], 
+    val_data = SequenceDataset(entries=df_val['entry'],
+                               sequences=df_val['sequence'], 
                                keywords=df_val[['organism', 'bp', 'cc',
                                'mf', 'insulin']].to_numpy(),
                                kw_method='sample',
                                token_to_idx=train_data.token_to_idx)
 
-    mb_size=64
+    mb_size=32
     
     train_loader = data.DataLoader(train_data, batch_size=mb_size,
                                    shuffle=True, pin_memory=True,
@@ -220,18 +221,26 @@ if __name__ == '__main__':
     
     # Choose network model
     n_tokens = len(train_data.token_to_idx)
-    embedding_size = 10
-    hidden_size = 250
-    n_layers = 4
+    embedding_size = 8
+    hidden_size = 128
+    n_layers = 2
 
-    net = GruNet(n_tokens, embedding_size, hidden_size,
-                 n_layers, dropout=0, bidirectional=False)
+    #net = GruNet(n_tokens, embedding_size, hidden_size,
+    #             n_layers, dropout=0)
     
     #net = LstmNet(n_tokens, embedding_size, hidden_size,
-    #             n_layers, dropout=0, bidirectional=False)
-    n_heads = 5
-    #net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
-    #    n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
+    #             n_layers, dropout=0)
+    
+    n_heads = 2
+    net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
+        n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
+
+    n_dilations = 10
+    kernel_size = 25
+    res_channels = 25
+    f_channels = 25
+    #net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size,
+    #    res_channels, f_channels)
     
     net = net.to(device=device)
 
@@ -261,9 +270,12 @@ if __name__ == '__main__':
         for inputs, targets, lengths in val_loader:
             inputs = inputs.to(device)
             targets = targets.to(device)
-
-            if net.model == "transformer":
+            
+            if net.model == 'transformer':
                 net_inputs = [inputs]
+            elif net.model == 'wavenet':
+                net_inputs = [inputs]
+                
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
             
@@ -286,7 +298,9 @@ if __name__ == '__main__':
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            if net.model == "transformer":
+            if net.model == 'transformer':
+                net_inputs = [inputs]
+            elif net.model == 'wavenet':
                 net_inputs = [inputs]
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
@@ -324,7 +338,7 @@ if __name__ == '__main__':
             print('Epoch {}\nTraining loss: {}, Validation loss: {}'.format(
                 i, train_loss[-1], val_loss[-1]))
             print('Training perplexity: {}, Validation perplexity: {}'.format(
-                i, train_perplexity[-1], val_perplexity[-1]))
+                train_perplexity[-1], val_perplexity[-1]))
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
