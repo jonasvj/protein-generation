@@ -12,10 +12,10 @@ import torch.nn.functional as f
 import nltk
 from collections import defaultdict
 from torch.utils import data
-from gru import GruNet
-from lstm import LstmNet
+#from gru import GruNet
+#from lstm import LstmNet
 from transformer_network import TransformerModel
-from train_model_batch import SequenceDataset, custom_collate_fn
+from train_model import SequenceDataset, custom_collate_fn
 
 #Initializations=====
 repo_dir = subprocess.run(
@@ -40,7 +40,7 @@ else:
 df_test = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/test_data.txt'), sep='\t', dtype = 'str')
 
-test_data = SequenceDataset(df_test['entry'], df_test['sequence'], df_test[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge', token_to_idx = token_to_idx)
+test_data = SequenceDataset(df_test['entry'][:50],df_test['sequence'][:50],df_test[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(),kw_method='merge', token_to_idx = token_to_idx)
 
 mb_size=1
 test_loader = data.DataLoader(test_data, batch_size=mb_size, shuffle=True,
@@ -64,40 +64,47 @@ bleu = []
 
 #Loop over entries in test set=====
 with torch.no_grad():
-    for inputs, input_lengths, targets in test_loader:
+    for inputs, targets, lengths in test_loader:
         inputs = inputs.to(device)
         targets = targets.to(device)
-        outputs = net(inputs)
+
+        if net.model == "transformer":
+            net_inputs = [inputs]
+        elif net.model in ['gru', 'lstm']:
+            net_inputs = [inputs, lengths]
+
+        output = net(*net_inputs)
+        outputs = output['output']
 
         #Perplexity
-        loss = f.cross_entropy(outputs.permute(1,2,0), targets.permute(1,0))
-        perplexity.append(float(torch.exp(loss)))
+        loss = f.cross_entropy(outputs, targets).detach().cpu().numpy()
+        perplexity.append(float(np.exp(loss)))
 
-        #Predict sequence
-        """
-        While pred != <EOS>:
-            outputs, new hidden state = net(input, hidden state) #First input of the test sequence, outputs a list to sample from
-            prediction = max(output[-1]) #Sample the largest value, that is the prediction
-            new inputs = input + prediction #Update inputs for next run of the network
-        """
+        #Prepare data for the predictions
+        num = inputs.cpu().numpy()[0]
+        input_ = num[num > 25]
+        input_ = torch.tensor([input_]).to(device)
+        softmax = torch.nn.Softmax(dim = 0)
+        hidden_state = [len(input_[0])]
         
-        #Sample the predicted protein
-        predicted = softmax(predicted).squeeze()
+        while len(input_[0]) < 100:
+            output = net(input_, [len(input_[0])]) #Forward pass
+            hidden_state = output['hidden'] #Save the hidden state
 
+            prediction = output['output'][0]
+            prediction = torch.transpose(prediction, 0, 1)[-1] #Choose the last line of the output, as that corresponds to the next token
+            prediction = softmax(prediction) #Softmax
+            prediction = torch.argmax(prediction).unsqueeze(0) #Get index of highest value
+            input_ = input_.squeeze()
+
+            input_ = torch.cat((input_, prediction), 0).unsqueeze(0)
         
         #BLEU Score
+        outputs = input_
         #BLEUscore = nltk.translate.bleu_score.sentence_bleu([targets], outputs)
-        
-        print(outputs.shape)
-        sys.exit(1)
-
-        #Evaluate predicted sequence based on different score metrics
-        #BLEU score
-        #Similarity using BLOSUM62
-
 
 print("Average perplexity is: ")
 print(np.mean(perplexity))
 
-print("Average BLEU score is: ")
-print(np.mean(bleu))
+#print("Average BLEU score is: ")
+#print(np.mean(bleu))
