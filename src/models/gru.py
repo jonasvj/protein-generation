@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     input_ = torch.ones((1,3)).long()
     input_[0,:] = torch.LongTensor([1,2,3])
-    input_lengths = [3]
+    input_lengths = [3] 
 
     output = net(input_, input_lengths)
     print(output['output'])
