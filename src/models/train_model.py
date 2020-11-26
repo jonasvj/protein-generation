@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 from gru import GruNet
 from lstm import LstmNet
-from wawenet import WaveNet
+from wavenet import WaveNet
 from torch.utils import data
+from wavenetX import WaveNetX
 from collections import defaultdict
 from transformer import TransformerModel
 
@@ -221,26 +222,31 @@ if __name__ == '__main__':
     
     # Choose network model
     n_tokens = len(train_data.token_to_idx)
-    embedding_size = 8
+    embedding_size = 48
+
     hidden_size = 128
     n_layers = 2
-
     #net = GruNet(n_tokens, embedding_size, hidden_size,
     #             n_layers, dropout=0)
-    
     #net = LstmNet(n_tokens, embedding_size, hidden_size,
     #             n_layers, dropout=0)
     
     n_heads = 2
-    net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
-        n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
+    #net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
+        #n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
 
-    n_dilations = 10
-    kernel_size = 25
-    res_channels = 25
-    f_channels = 25
-    #net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size,
-    #    res_channels, f_channels)
+    n_dilations = 8
+    kernel_size = 20
+    res_channels = 40
+    f_channels = 32
+    #net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size, stride=1,
+    #    res_channels=res_channels, f_channels=f_channels)
+
+    n_globals = 5
+    n_outputs = len(train_data.amino_acids) + 3
+    net = WaveNetX(n_tokens, n_globals, n_outputs, embedding_size, n_dilations,
+        kernel_size=kernel_size, stride=1, res_channels=res_channels,
+        f_channels=f_channels)
     
     net = net.to(device=device)
 
@@ -270,12 +276,16 @@ if __name__ == '__main__':
         for inputs, targets, lengths in val_loader:
             inputs = inputs.to(device)
             targets = targets.to(device)
-            
+
             if net.model == 'transformer':
                 net_inputs = [inputs]
             elif net.model == 'wavenet':
                 net_inputs = [inputs]
-                
+            elif net.model == 'wavenetX':
+                global_inputs = inputs[:,:n_globals]
+                inputs = inputs[:,n_globals:]
+                targets = targets[:,n_globals:]
+                net_inputs = [inputs, global_inputs]
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
             
@@ -302,6 +312,11 @@ if __name__ == '__main__':
                 net_inputs = [inputs]
             elif net.model == 'wavenet':
                 net_inputs = [inputs]
+            elif net.model == 'wavenetX':
+                global_inputs = inputs[:,:n_globals]
+                inputs = inputs[:,n_globals:]
+                targets = targets[:,n_globals:]
+                net_inputs = [inputs, global_inputs]
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
 
