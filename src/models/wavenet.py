@@ -76,16 +76,17 @@ class ResidualBlock(nn.Module):
 class WaveNet(nn.Module):
     """Neural network with the WaveNet architecture"""
 
-    def __init__(self, n_tokens, embedding_size, n_dilations, kernel_size=2, stride=1):
+    def __init__(self, n_tokens, embedding_size, n_dilations, kernel_size=2, 
+    stride=1, res_channels=16, f_channels=8):
         super(WaveNet, self).__init__()
+        self.model = 'wavenet'
         self.n_tokens = n_tokens
         self.embedding_size = embedding_size
         self.n_dilations = n_dilations
         self.kernel_size = kernel_size
         self.stride = stride
-        self.residual_channels = 16
-        self.final_channels_1 = 8
-        self.final_channels_2 = 2
+        self.residual_channels = res_channels
+        self.final_channels = f_channels
         self.pad_idx = 0
 
         self.encoder = nn.Embedding(self.n_tokens, self.embedding_size,
@@ -97,10 +98,10 @@ class WaveNet(nn.Module):
                                         stride=self.stride,
                                         dilation=1)
 
-        self.residual_blocks = nn.ModuleList()     
+        self.residual_blocks = nn.ModuleList()
 
         for i in range(self.n_dilations):
-            dilation = 2**i
+            dilation = 2**(i+1)
             self.residual_blocks.append(
                 ResidualBlock(in_channels=self.residual_channels,
                               out_channels=self.residual_channels,
@@ -109,39 +110,53 @@ class WaveNet(nn.Module):
                               dilation=dilation))
         
         self.final_1x1_conv_1 = nn.Conv1d(in_channels=self.residual_channels,
-                                          out_channels=self.final_channels_1,
+                                          out_channels=self.final_channels,
                                           kernel_size=1,
                                           stride=1,
                                           dilation=1)
         
-        self.final_1x1_conv_2 = nn.Conv1d(in_channels=self.final_channels_1,
-                                          out_channels=self.final_channels_2,
+        self.final_1x1_conv_2 = nn.Conv1d(in_channels=self.final_channels,
+                                          out_channels=self.n_tokens,
                                           kernel_size=1,
                                           stride=1,
                                           dilation=1)
 
-    def forward(self, x):
-        x = self.encoder(x).permute(0,2,1)
-        residual = self.causal_conv(x)
+    def forward(self, input_tensor):
+        """Expects input of shape (batch, max_seq_len)"""
+        # Embedding
+        emb = self.encoder(input_tensor)
 
-        skips_total = torch.zeros(residual.shape)
+        # Reshape from (batch, max_seq_len, emb) to (batch, emb, max_seq_len)
+        emb = emb.permute(0,2,1)
+
+        residual = self.causal_conv(emb)
+
+        skips_total = torch.zeros(residual.shape, device=input_tensor.device)
         for residual_block in self.residual_blocks:
             residual, skip = residual_block(residual)
             skips_total += skip
         
-        out = torch.relu(skips_total)
-        out = self.final_1x1_conv_1(out)
-        out = torch.relu(out)
-        out = self.final_1x1_conv_2(out)
+        output = torch.relu(skips_total)
+        output = self.final_1x1_conv_1(output)
+        output = torch.relu(output)
+        output = self.final_1x1_conv_2(output)
 
-        return out
+        return {'output': output}
 
 if __name__ == '__main__':
 
-    input_ = torch.tensor([1, 2, 3, 3]).unsqueeze(0)
-    
-    net = WaveNet(4, 7, n_dilations=3, kernel_size=2, stride=1)
-    print(net)
+    n_tokens = 7
+    embedding_size = 3
+    n_dilations = 2
+    kernel_size = 2
+    res_channels=16
+    f_channels=8
 
+    net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size, stride=1,
+        res_channels=res_channels, f_channels=f_channels)
+
+    input_ = torch.tensor([1, 2, 3, 3, 4, 0, 0]).unsqueeze(0)
     output = net(input_)
+    output = output['output']
     print(output)
+    print(output.shape)

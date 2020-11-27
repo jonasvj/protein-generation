@@ -68,7 +68,7 @@ class GruNet(nn.Module):
 
 if __name__ == '__main__':
 
-    n_tokens = 5
+    n_tokens = 7
     embedding_size = 3
     hidden_size = 12
     n_layers = 2
@@ -78,10 +78,14 @@ if __name__ == '__main__':
     net = GruNet(n_tokens, embedding_size, hidden_size, n_layers,
                  dropout=dropout, bidirectional=bidirectional)
 
-    input_ = torch.ones((1,3)).long()
-    input_[0,:] = torch.LongTensor([1,2,3])
-    input_lengths = [3] 
+    input_ = torch.ones((1,5)).long()
+    input_[0,:] = torch.LongTensor([1,2,3,0,0])
+    input_lengths = [5]
 
+    print(input_)
+    print(input_.shape)
     output = net(input_, input_lengths)
     print(output['output'])
     print(output['hidden'])
+
+    output = net(input_, hidden)

@@ -4,12 +4,15 @@ import sys
 import time
 import torch
 import pickle
+import argparse
 import subprocess
 import numpy as np
 import pandas as pd
 from gru import GruNet
 from lstm import LstmNet
+from wavenet import WaveNet
 from torch.utils import data
+from wavenetX import WaveNetX
 from collections import defaultdict
 from transformer import TransformerModel
 
@@ -174,9 +177,49 @@ def custom_collate_fn(batch):
             
     return input_tensor, target_tensor, lengths
 
+def train_model_cli():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        description='Scrip for training DL models')
+    parser.add_argument(
+        'model',
+        help='Type of DL model',
+        choices=['gru', 'lstm', 'transformer', 'wavenet', 'wavenetX'])
+    parser.add_argument(
+        '--embedding_size',
+        help='Size of embedding')
+    
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    parser_gru = subparsers.add_parser('gru', help='a help')
+    parser_gru.add_argument(
+        'n_layers',
+        help='Number of hidden layers')
+    parser_gru.add_argument(
+        'hidden_size',
+        help='Number of units in hidden layers')
+    parser_gru.add_argument(
+        'dropout',
+        help='Dropout rate')
+    
+    parser_lstm = subparsers.add_parser('lstm', help='a help')
+    parser_lstm.add_argument(
+        'n_layers',
+        help='Number of hidden layers')
+    parser_lstm.add_argument(
+        'hidden_size',
+        help='Number of units in hidden layers')
+    parser_lstm.add_argument(
+        'dropout',
+        help='Dropout rate')
+    
+    return parser.parse_args()
 
 if __name__ == '__main__':
-
+    #args = train_model_cli()
+    #print(args)
+    #sys.exit(1)
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
@@ -195,20 +238,20 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'data/processed/val_data.txt'),
         sep='\t', dtype='str')
     
-    train_data = SequenceDataset(entries=df_train['entry'][:500],
-                                 sequences=df_train['sequence'][:500],
+    train_data = SequenceDataset(entries=df_train['entry'],
+                                 sequences=df_train['sequence'],
                                  keywords=df_train[['organism', 'bp', 'cc',
                                  'mf', 'insulin']].to_numpy(),
                                  kw_method='sample')
 
-    val_data = SequenceDataset(entries=df_val['entry'][:500],
-                               sequences=df_val['sequence'][:500], 
+    val_data = SequenceDataset(entries=df_val['entry'],
+                               sequences=df_val['sequence'], 
                                keywords=df_val[['organism', 'bp', 'cc',
                                'mf', 'insulin']].to_numpy(),
                                kw_method='sample',
                                token_to_idx=train_data.token_to_idx)
 
-    mb_size=64
+    mb_size=32
     
     train_loader = data.DataLoader(train_data, batch_size=mb_size,
                                    shuffle=True, pin_memory=True,
@@ -220,18 +263,31 @@ if __name__ == '__main__':
     
     # Choose network model
     n_tokens = len(train_data.token_to_idx)
-    embedding_size = 10
-    hidden_size = 250
-    n_layers = 4
+    embedding_size = 48
 
-    net = GruNet(n_tokens, embedding_size, hidden_size,
-                 n_layers, dropout=0, bidirectional=False)
-    
+    hidden_size = 128
+    n_layers = 2
+    #net = GruNet(n_tokens, embedding_size, hidden_size,
+    #             n_layers, dropout=0)
     #net = LstmNet(n_tokens, embedding_size, hidden_size,
-    #             n_layers, dropout=0, bidirectional=False)
-    n_heads = 5
+    #             n_layers, dropout=0)
+    
+    n_heads = 2
     #net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
-    #    n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
+        #n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
+
+    n_dilations = 8
+    kernel_size = 20
+    res_channels = 40
+    f_channels = 32
+    #net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size, stride=1,
+    #    res_channels=res_channels, f_channels=f_channels)
+
+    n_globals = 5
+    n_outputs = len(train_data.amino_acids) + 3
+    net = WaveNetX(n_tokens, n_globals, n_outputs, embedding_size, n_dilations,
+        kernel_size=kernel_size, stride=1, res_channels=res_channels,
+        f_channels=f_channels)
     
     net = net.to(device=device)
 
@@ -262,8 +318,15 @@ if __name__ == '__main__':
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            if net.model == "transformer":
+            if net.model == 'transformer':
                 net_inputs = [inputs]
+            elif net.model == 'wavenet':
+                net_inputs = [inputs]
+            elif net.model == 'wavenetX':
+                global_inputs = inputs[:,:n_globals]
+                inputs = inputs[:,n_globals:]
+                targets = targets[:,n_globals:]
+                net_inputs = [inputs, global_inputs]
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
             
@@ -286,8 +349,15 @@ if __name__ == '__main__':
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            if net.model == "transformer":
+            if net.model == 'transformer':
                 net_inputs = [inputs]
+            elif net.model == 'wavenet':
+                net_inputs = [inputs]
+            elif net.model == 'wavenetX':
+                global_inputs = inputs[:,:n_globals]
+                inputs = inputs[:,n_globals:]
+                targets = targets[:,n_globals:]
+                net_inputs = [inputs, global_inputs]
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
 
@@ -324,7 +394,7 @@ if __name__ == '__main__':
             print('Epoch {}\nTraining loss: {}, Validation loss: {}'.format(
                 i, train_loss[-1], val_loss[-1]))
             print('Training perplexity: {}, Validation perplexity: {}'.format(
-                i, train_perplexity[-1], val_perplexity[-1]))
+                train_perplexity[-1], val_perplexity[-1]))
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
