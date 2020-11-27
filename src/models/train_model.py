@@ -183,43 +183,137 @@ def train_model_cli():
         allow_abbrev=False,
         description='Scrip for training DL models')
     parser.add_argument(
-        'model',
-        help='Type of DL model',
-        choices=['gru', 'lstm', 'transformer', 'wavenet', 'wavenetX'])
-    parser.add_argument(
         '--embedding_size',
-        help='Size of embedding')
+        help='Size of embedding',
+        type=int,
+        default=20)
+    parser.add_argument(
+        '--learning_rate',
+        help='learning rate during optimization',
+        type=float,
+        default=0.001)
+    parser.add_argument(
+        '--mb_size',
+        help='learning rate during optimization',
+        type=float,
+        default=64)
+    parser.add_argument(
+        '--epochs',
+        help='Number of training epochs',
+        type=int,
+        default=500
+    )
+    parser.add_argument(
+        'output_file',
+        help='Name of output file')
     
-    subparsers = parser.add_subparsers(help='sub-command help')
+    subparsers = parser.add_subparsers(
+        help='Type of DL model',
+        dest='model')
 
-    parser_gru = subparsers.add_parser('gru', help='a help')
+    # Parser for gru
+    parser_gru = subparsers.add_parser('gru', help='GRU model')
     parser_gru.add_argument(
-        'n_layers',
-        help='Number of hidden layers')
+        '--n_layers',
+        help='Number of hidden layers',
+        type=int,
+        default=2)
     parser_gru.add_argument(
-        'hidden_size',
-        help='Number of units in hidden layers')
+        '--hidden_size',
+        help='Number of units in hidden layers',
+        type=int,
+        default=128)
     parser_gru.add_argument(
-        'dropout',
-        help='Dropout rate')
+        '--dropout',
+        help='Dropout rate',
+        type=float,
+        default=0.1)
     
-    parser_lstm = subparsers.add_parser('lstm', help='a help')
+    # Parser for lstm
+    parser_lstm = subparsers.add_parser('lstm', help='LSTM model')
     parser_lstm.add_argument(
-        'n_layers',
-        help='Number of hidden layers')
+        '--n_layers',
+        help='Number of hidden layers',
+        type=int,
+        default=2)
     parser_lstm.add_argument(
-        'hidden_size',
-        help='Number of units in hidden layers')
+        '--hidden_size',
+        help='Number of units in hidden layers',
+        type=int,
+        default=128)
     parser_lstm.add_argument(
-        'dropout',
-        help='Dropout rate')
+        '--dropout',
+        help='Dropout rate',
+        type=float,
+        default=0.1)
     
-    return parser.parse_args()
+    # Parser for transformer
+    parser_transformer = subparsers.add_parser('transformer',
+        help='Transformer model')
+    parser_transformer.add_argument(
+        '--n_layers',
+        help='Number of encoder layers',
+        type=int,
+        default=2)
+    parser_transformer.add_argument(
+        '--n_heads',
+        help='Number of multi headed attentions per encoder layer',
+        type=int,
+        default=10)
+    parser_transformer.add_argument(
+        '--hidden_size',
+        help='Number of units in feed-forward layers',
+        type=int,
+        default=128)
+    parser_transformer.add_argument(
+        '--dropout',
+        help='Dropout rate',
+        type=float,
+        default=0.1)
+    
+    # Parser for wavenet
+    parser_wavenet = subparsers.add_parser('wavenet', help='WaveNet model')
+    parser_wavenet.add_argument(
+        '--n_dilations',
+        help='Number of dilations (hidden layers)',
+        type=int,
+        default=2)
+    parser_wavenet.add_argument(
+        '--kernel_size',
+        help='Size of convolution kernel',
+        type=int,
+        default=2)
+    parser_wavenet.add_argument(
+        '--stride',
+        help='Stride length in convolution',
+        type=int,
+        default=1)
+    parser_wavenet.add_argument(
+        '--res_channels',
+        help='Number of channels in residual blocks',
+        type=int,
+        default=16)
+    parser_wavenet.add_argument(
+        '--f_channels',
+        help='Number of channels in final convolution',
+        type=int,
+        default=16)
+    parser_wavenet.add_argument(
+        '--X',
+        help='Use global inputs',
+        action='store_true',
+        default=False)
+
+    return vars(parser.parse_args())
 
 if __name__ == '__main__':
-    #args = train_model_cli()
-    #print(args)
-    #sys.exit(1)
+    model_args = train_model_cli()
+    model = model_args.pop('model')
+    mb_size = model_args.pop('mb_size')
+    learning_rate = model_args.pop('learning_rate')
+    num_epochs = model_args.pop('epochs')
+    output_file = model_args.pop('output_file')
+
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
@@ -250,56 +344,52 @@ if __name__ == '__main__':
                                'mf', 'insulin']].to_numpy(),
                                kw_method='sample',
                                token_to_idx=train_data.token_to_idx)
-
-    mb_size=32
     
-    train_loader = data.DataLoader(train_data, batch_size=mb_size,
-                                   shuffle=True, pin_memory=True,
-                                   num_workers=4, collate_fn=custom_collate_fn)
+    train_loader = data.DataLoader(train_data,
+                                   batch_size=mb_size,
+                                   shuffle=True,
+                                   pin_memory=True,
+                                   num_workers=4,
+                                   collate_fn=custom_collate_fn)
     
-    val_loader = data.DataLoader(val_data, batch_size=mb_size, shuffle=False,
-                                 pin_memory=True, num_workers=4,
+    val_loader = data.DataLoader(val_data,
+                                 batch_size=mb_size,
+                                 shuffle=False,
+                                 pin_memory=True,
+                                 num_workers=4,
                                  collate_fn=custom_collate_fn)
     
     # Choose network model
     n_tokens = len(train_data.token_to_idx)
-    embedding_size = 48
-
-    hidden_size = 128
-    n_layers = 2
-    #net = GruNet(n_tokens, embedding_size, hidden_size,
-    #             n_layers, dropout=0)
-    #net = LstmNet(n_tokens, embedding_size, hidden_size,
-    #             n_layers, dropout=0)
     
-    n_heads = 2
-    #net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
-        #n_layers, dropout=0, pad_idx=train_data.token_to_idx['<PAD>'])
-
-    n_dilations = 8
-    kernel_size = 20
-    res_channels = 40
-    f_channels = 32
-    #net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size, stride=1,
-    #    res_channels=res_channels, f_channels=f_channels)
-
-    n_globals = 5
-    n_outputs = len(train_data.amino_acids) + 3
-    net = WaveNetX(n_tokens, n_globals, n_outputs, embedding_size, n_dilations,
-        kernel_size=kernel_size, stride=1, res_channels=res_channels,
-        f_channels=f_channels)
-    
+    if model == 'gru':
+        net = GruNet(n_tokens=n_tokens, **model_args)
+    elif model == 'lstm':
+        net = LstmNet(n_tokens=n_tokens, **model_args)
+    elif model == 'transformer':
+        net = TransformerModel(n_tokens=n_tokens,
+                               pad_idx=train_data.token_to_idx['<PAD>'],
+                               **model_args)
+    elif model == 'wavenet':
+        use_global_input = model_args.pop('X')
+        if use_global_input is True:
+            n_globals=5
+            n_outputs = len(train_data.amino_acids) + 3
+            net = WaveNetX(n_tokens=n_tokens,
+                           n_globals=n_globals,
+                           n_outputs=n_outputs,
+                           **model_args)
+        else:
+            net = WaveNet(n_tokens=n_tokens, **model_args)
+ 
     net = net.to(device=device)
-
-    # Hyper-parameters
-    num_epochs = 1000
 
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
         ignore_index=train_data.token_to_idx['<PAD>'],
         reduction='mean')
     
-    optimizer = torch.optim.Adam(net.parameters())
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
 
     # Track loss and perplexity
     train_loss, val_loss = [], []
@@ -398,16 +488,22 @@ if __name__ == '__main__':
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
-    torch.save(net, os.path.join(repo_dir, 'models/gru_network.pt'))
+    torch.save(net, os.path.join(repo_dir, 'models/' + output_file + '.pt'))
 
     # Convert defaultdicts to regular dicts that can be pickled
     token_to_idx = dict(train_data.token_to_idx)
     idx_to_token = dict(train_data.idx_to_token)
-    
-    out_file = open(os.path.join(repo_dir, 'models/token_to_idx.pickle'), 'wb')
-    pickle.dump(token_to_idx, out_file, protocol=pickle.HIGHEST_PROTOCOL)
-    out_file.close()
-    
-    out_file = open(os.path.join(repo_dir, 'models/idx_to_token.pickle'), 'wb')
-    pickle.dump(idx_to_token, out_file, protocol=pickle.HIGHEST_PROTOCOL)
+
+    stats_dict = dict()
+    stats_dict['idx_to_token'] = idx_to_token
+    stats_dict['token_to_idx'] = token_to_idx
+    stats_dict['train_loss'] = train_loss
+    stats_dict['val_loss'] = val_loss
+    stats_dict['train_perplexity'] = train_perplexity
+    stats_dict['val_perplexity'] = val_perplexity
+    stats_dict['model_args'] = model_args
+
+    out_file = open(
+        os.path.join(repo_dir, 'models/' + output_file + '.pickle'), 'wb')
+    pickle.dump(stats_dict, out_file, protocol=pickle.HIGHEST_PROTOCOL)
     out_file.close()
