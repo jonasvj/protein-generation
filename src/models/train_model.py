@@ -384,6 +384,12 @@ if __name__ == '__main__':
  
     net = net.to(device=device)
 
+<<<<<<< HEAD
+=======
+    # Hyper-parameters
+    num_epochs = 100
+
+>>>>>>> ea1b44feb0fdd9ff9500e5947eff3b382cff6543
     # Loss function and optimizer
     criterion = torch.nn.CrossEntropyLoss(
         ignore_index=train_data.token_to_idx['<PAD>'],
@@ -493,6 +499,7 @@ if __name__ == '__main__':
     # Convert defaultdicts to regular dicts that can be pickled
     token_to_idx = dict(train_data.token_to_idx)
     idx_to_token = dict(train_data.idx_to_token)
+<<<<<<< HEAD
 
     stats_dict = dict()
     stats_dict['idx_to_token'] = idx_to_token
@@ -507,3 +514,13 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'models/' + output_file + '.pickle'), 'wb')
     pickle.dump(stats_dict, out_file, protocol=pickle.HIGHEST_PROTOCOL)
     out_file.close()
+=======
+    
+    out_file = open(os.path.join(repo_dir, 'models/token_to_idx.pickle'), 'wb')
+    pickle.dump(token_to_idx, out_file, protocol=pickle.HIGHEST_PROTOCOL)
+    out_file.close()
+    
+    out_file = open(os.path.join(repo_dir, 'models/idx_to_token.pickle'), 'wb')
+    pickle.dump(idx_to_token, out_file, protocol=pickle.HIGHEST_PROTOCOL)
+    out_file.close()
+>>>>>>> ea1b44feb0fdd9ff9500e5947eff3b382cff6543

@@ -12,10 +12,8 @@ import torch.nn.functional as f
 import nltk
 from collections import defaultdict
 from torch.utils import data
-from gru import GruNet
-from lstm import LstmNet
 from transformer_network import TransformerModel
-from train_model_batch import SequenceDataset, custom_collate_fn
+from train_model import SequenceDataset, custom_collate_fn
 
 #Initializations=====
 repo_dir = subprocess.run(
@@ -23,13 +21,19 @@ repo_dir = subprocess.run(
         stdout=subprocess.PIPE).stdout.decode().strip()
 
 with open(os.path.join(repo_dir, 'models/idx_to_token.pickle'), 'rb') as handle:
-    idx_to_token = pickle.load(handle)
+    idx_to_token_temp = pickle.load(handle)
 
 with open(os.path.join(repo_dir, 'models/token_to_idx.pickle'), 'rb') as handle:
-    token_to_idx = pickle.load(handle)
+    token_to_idx_temp = pickle.load(handle)
 
-idx_to_token = defaultdict(lambda: '<UNK>').update(idx_to_token)
-token_to_idx = defaultdict(lambda: 1).update(token_to_idx)
+idx_to_token = defaultdict(lambda: '<UNK>')
+token_to_idx = defaultdict(lambda: 1)
+
+for key, value in token_to_idx_temp.items():
+    token_to_idx[key] = value
+
+for key, value in idx_to_token_temp.items():
+    idx_to_token[key] = value
 
 if torch.cuda.is_available():
     device = 'cuda:0'
@@ -40,7 +44,7 @@ else:
 df_test = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/test_data.txt'), sep='\t', dtype = 'str')
 
-test_data = SequenceDataset(df_test['entry'], df_test['sequence'], df_test[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(), kw_method='merge', token_to_idx = token_to_idx)
+test_data = SequenceDataset(df_test['entry'][:5],df_test['sequence'][:5],df_test[['organism', 'bp', 'cc', 'mf', 'insulin']].to_numpy(),kw_method='merge', token_to_idx = token_to_idx)
 
 mb_size=1
 test_loader = data.DataLoader(test_data, batch_size=mb_size, shuffle=True,
@@ -52,6 +56,8 @@ net = torch.load(os.path.join(repo_dir, 'models/gru_network.pt')) #GruNet
 #net = torch.load(os.path.join(repo_dir, 'models/lstm_network.pt')) #LstmNet
 #net = torch.load(os.path.join(repo_dir, 'models/transformer_network.pt')) #TransformerNet
 #net = torch.load(os.path.join(repo_dir, 'models/wave_network.pt')) #WaveNet
+#net = torch.load(os.path.join(repo_dir, 'models/waveX_network.pt')) #WaveNetX
+n_globals = 5
 
 net = net.to(device)
 
@@ -64,40 +70,79 @@ bleu = []
 
 #Loop over entries in test set=====
 with torch.no_grad():
-    for inputs, input_lengths, targets in test_loader:
+    for inputs, targets, lengths in test_loader:
         inputs = inputs.to(device)
         targets = targets.to(device)
-        outputs = net(inputs)
 
-        #Perplexity
-        loss = f.cross_entropy(outputs.permute(1,2,0), targets.permute(1,0))
-        perplexity.append(float(torch.exp(loss)))
+        #=====Perplexity
+        if net.model in ['gru', 'lstm']:
+            net_inputs = [inputs, [len(inputs[0])]]
+        elif net.model in ['transformer', 'wavenet']:
+            net_inputs = [inputs]
+        elif net.model == 'wavenetX':
+            global_inputs = inputs[:,:n_globals]
+            inputs = inputs[:,n_globals:]
+            targets_waveX = targets[:,n_globals:]
+            net_inputs = [inputs, global_inputs]
 
-        #Predict sequence
-        """
-        While pred != <EOS>:
-            outputs, new hidden state = net(input, hidden state) #First input of the test sequence, outputs a list to sample from
-            prediction = max(output[-1]) #Sample the largest value, that is the prediction
-            new inputs = input + prediction #Update inputs for next run of the network
-        """
+        output = net(*net_inputs)
+        outputs = output['output']
+
+        loss = f.cross_entropy(outputs, targets).detach().cpu().numpy()
+        perplexity.append(float(np.exp(loss)))
+
+        #=====Predictions
+        #Prepare data
+        num = inputs.cpu().numpy()[0]
+        input_ = num[num > 25] #Drop indexes, which do not correspond to amino acids
+        input_ = torch.tensor([input_]).to(device)
+        softmax = torch.nn.Softmax(dim = 0)
         
-        #Sample the predicted protein
-        predicted = softmax(predicted).squeeze()
+        while len(input_[0]) < 100:
+            if net.model in ['gru', 'lstm']:
+                net_inputs = [input_, [len(input_[0])]]
+            elif net.model in ['transformer', 'wavenet']:
+                net_inputs = [input_]
+            elif net.model == 'wavenetX':
+                global_inputs = input_[:,:n_globals]
+                input_ = input_[:,n_globals:]
+                targets_waveX = targets[:,n_globals:]
+                net_inputs = [input_, global_inputs]
 
+            output = net(*net_inputs) #Forward pass
+
+            prediction = output['output'][0]
+            prediction = torch.transpose(prediction, 0, 1)[-1] #Choose the last line of the output, as that corresponds to the next token
+            prediction = softmax(prediction) #Softmax
+            prediction = torch.argmax(prediction).unsqueeze(0) #Get index of highest value
+                
+            input_ = input_.squeeze() #Squeece, so it can be concatenated with prediction
+            input_ = torch.cat((input_, prediction), 0).unsqueeze(0)
         
-        #BLEU Score
-        #BLEUscore = nltk.translate.bleu_score.sentence_bleu([targets], outputs)
-        
-        print(outputs.shape)
-        sys.exit(1)
+        #=====BLEU Score
+        #Translate outputs to amino acids
+        output_protein = list(np.vectorize(idx_to_token.get)(input_.cpu().numpy()[0]))
+        target_protein = list(np.vectorize(idx_to_token.get)(targets.cpu().numpy()[0]))
 
-        #Evaluate predicted sequence based on different score metrics
-        #BLEU score
-        #Similarity using BLOSUM62
+        ######Can this get more effective?
+        predicted_protein = []
+        desired_protein = []
+        for i in range(len(output_protein)):
+            if len(output_protein[i]) == 1 or output_protein[i] == '<EOS>':
+                predicted_protein.append(output_protein[i])
+        for i in range(len(target_protein)):
+            if len(target_protein[i]) == 1 or target_protein[i] == '<EOS>':
+                desired_protein.append(target_protein[i])
 
+        BLEUscore = nltk.translate.bleu_score.sentence_bleu([desired_protein], predicted_protein)
+        bleu.append(BLEUscore)
 
-print("Average perplexity is: ")
+#=====Evaluation of the model
+print("\nThe evaluated model was " + str(net.model))
+
+print("\nAverage perplexity is: ")
 print(np.mean(perplexity))
 
-print("Average BLEU score is: ")
+print("\nAverage BLEU score is: ")
 print(np.mean(bleu))
+print()
