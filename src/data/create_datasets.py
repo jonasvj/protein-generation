@@ -32,6 +32,7 @@ def random_split(data, props, seed=42):
 
 if __name__ == '__main__':
     np.random.seed(42)
+    random.seed(42)
 
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],

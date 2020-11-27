@@ -4,6 +4,7 @@ import sys
 import time
 import torch
 import pickle
+import argparse
 import subprocess
 import numpy as np
 import pandas as pd
@@ -176,9 +177,49 @@ def custom_collate_fn(batch):
             
     return input_tensor, target_tensor, lengths
 
+def train_model_cli():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        allow_abbrev=False,
+        description='Scrip for training DL models')
+    parser.add_argument(
+        'model',
+        help='Type of DL model',
+        choices=['gru', 'lstm', 'transformer', 'wavenet', 'wavenetX'])
+    parser.add_argument(
+        '--embedding_size',
+        help='Size of embedding')
+    
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    parser_gru = subparsers.add_parser('gru', help='a help')
+    parser_gru.add_argument(
+        'n_layers',
+        help='Number of hidden layers')
+    parser_gru.add_argument(
+        'hidden_size',
+        help='Number of units in hidden layers')
+    parser_gru.add_argument(
+        'dropout',
+        help='Dropout rate')
+    
+    parser_lstm = subparsers.add_parser('lstm', help='a help')
+    parser_lstm.add_argument(
+        'n_layers',
+        help='Number of hidden layers')
+    parser_lstm.add_argument(
+        'hidden_size',
+        help='Number of units in hidden layers')
+    parser_lstm.add_argument(
+        'dropout',
+        help='Dropout rate')
+    
+    return parser.parse_args()
 
 if __name__ == '__main__':
-
+    #args = train_model_cli()
+    #print(args)
+    #sys.exit(1)
     repo_dir = subprocess.run(
         ['git', 'rev-parse', '--show-toplevel'],
         stdout=subprocess.PIPE).stdout.decode().strip()
