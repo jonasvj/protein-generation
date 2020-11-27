@@ -87,3 +87,5 @@ if __name__ == '__main__':
     output = net(input_, input_lengths)
     print(output['output'])
     print(output['hidden'])
+
+    output = net(input_, hidden)
