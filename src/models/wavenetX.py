@@ -91,7 +91,8 @@ class WaveNetX(nn.Module):
     """Neural network with the WaveNet architecture"""
 
     def __init__(self, n_tokens, n_globals, n_outputs, embedding_size,
-    n_dilations, kernel_size=2, stride=1, res_channels=16, f_channels=8):
+    n_dilations, kernel_size=2, stride=1, res_channels=16, f_channels=8,
+    pad_idx=0):
         super(WaveNetX, self).__init__()
         self.model = 'wavenetX'
         self.n_tokens = n_tokens
@@ -103,7 +104,7 @@ class WaveNetX(nn.Module):
         self.stride = stride
         self.residual_channels = res_channels
         self.final_channels = f_channels
-        self.pad_idx = 0
+        self.pad_idx = pad_idx
 
         self.encoder = nn.Embedding(self.n_tokens, self.embedding_size,
                                     padding_idx=self.pad_idx)

@@ -6,7 +6,7 @@ class LstmNet(nn.Module):
     """LSTM network that accepts a mini batch"""
 
     def __init__(self, n_tokens, embedding_size, hidden_size, n_layers,
-                 dropout=0.5, bidirectional=False):
+                 dropout=0.5, bidirectional=False, pad_idx=0):
         super(LstmNet, self).__init__()
         self.model = "lstm"
         self.n_tokens = n_tokens
@@ -15,7 +15,7 @@ class LstmNet(nn.Module):
         self.n_layers = n_layers
         self.dropout = dropout
         self.bidirectional = bidirectional
-        self.pad_idx = 0
+        self.pad_idx = pad_idx
 
         if self.bidirectional:
             self.num_directions = 2
