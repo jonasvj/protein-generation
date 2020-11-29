@@ -72,7 +72,8 @@ if __name__ == '__main__':
         & (non_insulin_data.sequence.map(len) <= max_len)]
     
     # Merge insulin data and non-insulin data
-    filtered_data = insulin_data.append(non_insulin_data)
+    #filtered_data = insulin_data.append(non_insulin_data)
+    filtered_data = insulin_data
 
     # Keep only entry ID and sequence
     filtered_data = filtered_data[['entry', 'organism', 'bp', 'cc', 'mf',
@@ -86,18 +87,6 @@ if __name__ == '__main__':
     val_df = filtered_data.loc[filtered_data['entry'].isin(val_entries)]
     test_df = filtered_data.loc[filtered_data['entry'].isin(test_entries)]
 
-    plt.figure()
-    plt.hist(insulin_data.sequence.map(len))
-    plt.savefig('hist1.pdf')
-
-    plt.figure()
-    plt.hist(non_insulin_data.sequence.map(len))
-    plt.savefig('hist2.pdf')
-
-    plt.figure()
-    plt.hist(filtered_data.sequence.map(len))
-    plt.savefig('hist3.pdf')
-
     # Save data sets
     train_df.to_csv(
         os.path.join(repo_dir, 'data/processed/train_data.txt'),
@@ -108,5 +97,4 @@ if __name__ == '__main__':
     test_df.to_csv(
         os.path.join(repo_dir, 'data/processed/test_data.txt'),
         sep='\t', index=False)
-    
     

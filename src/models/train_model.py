@@ -44,13 +44,13 @@ if __name__ == '__main__':
     train_data = SequenceDataset(entries=df_train['entry'],
                                  sequences=df_train['sequence'],
                                  keywords=df_train[['organism', 'bp', 'cc',
-                                 'mf', 'insulin']].to_numpy(),
+                                 'mf']].to_numpy(),
                                  kw_method=kw_method)
 
     val_data = SequenceDataset(entries=df_val['entry'],
                                sequences=df_val['sequence'], 
                                keywords=df_val[['organism', 'bp', 'cc',
-                               'mf', 'insulin']].to_numpy(),
+                               'mf']].to_numpy(),
                                kw_method=kw_method,
                                token_to_idx=train_data.token_to_idx)
     
