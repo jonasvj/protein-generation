@@ -54,6 +54,11 @@ if __name__ == '__main__':
                                kw_method=kw_method,
                                token_to_idx=train_data.token_to_idx)
     
+    # Maximum length of keywords + sequence
+    max_len = 0
+    for input_, target in train_data:
+        max_len = max(max_len, len(input_))
+    
     # Prepare data loaders
     train_loader = data.DataLoader(train_data,
                                    batch_size=mb_size,
@@ -73,14 +78,14 @@ if __name__ == '__main__':
     n_val = len(val_data)
     model_args['n_tokens'] = len(train_data.token_to_idx)
     model_args['pad_idx'] = train_data.token_to_idx['<PAD>']
-    
+
     # Choose network model
     if model == 'gru':
         net = GruNet(**model_args)
     elif model == 'lstm':
         net = LstmNet(**model_args)
     elif model == 'transformer':
-        model_args['max_len'] = df_train.sequence.map(len).max()
+        model_args['max_len'] = max_len
         net = TransformerModel(**model_args)
     elif model == 'wavenet':
         use_global_input = model_args.pop('X')
@@ -91,7 +96,7 @@ if __name__ == '__main__':
             net = WaveNetX(**model_args)
         else:
             net = WaveNet(**model_args)
- 
+    
     net = net.to(device=device)
 
     # Loss function and optimizer
@@ -162,7 +167,6 @@ if __name__ == '__main__':
             elif net.model in ['gru', 'lstm']:
                 net_inputs = [inputs, lengths]
             elif net.model == 'wavenetX':
-
                 global_inputs = inputs[:,:n_globals]
                 inputs = inputs[:,n_globals:]
                 targets = targets[:,n_globals:]
@@ -199,6 +203,7 @@ if __name__ == '__main__':
             print('Training perplexity: {}, Validation perplexity: {}'.format(
                 train_perplexity[-1], val_perplexity[-1]))
             print('Learning rate: {}'.format(learning_rates[-1]))
+            print(torch.cuda.memory_summary(device, abbreviated=True))
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
@@ -215,6 +220,7 @@ if __name__ == '__main__':
     stats_dict['val_loss'] = val_loss
     stats_dict['train_perplexity'] = train_perplexity
     stats_dict['val_perplexity'] = val_perplexity
+    stats_dict['learning_rates'] = learning_rates
     stats_dict['model_args'] = all_model_args.update(model_args)
 
     out_file = open(

@@ -4,6 +4,7 @@ import random
 import subprocess
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def random_split(data, props, seed=42):
     """Randomly splits data frame into defined proportions.
@@ -46,17 +47,32 @@ if __name__ == '__main__':
     raw_data.columns = ['entry', 'organism', 'bp', 'cc', 'mf',
                         'pfam', 'sequence', 'insulin']
 
-    # Filter data
-    filtered_data = raw_data[raw_data['insulin'] == 'Yes']
-    non_insulin_data = raw_data[raw_data['insulin'] == 'No']
-    sampled_entries = np.random.choice(non_insulin_data.entry.unique(),
-                                       size=len(filtered_data.entry.unique()),
-                                       replace=False)
+    # Extract insulin sequences
+    insulin_data = raw_data.loc[raw_data['insulin'] == 'Yes']
 
+    # Filter out sequences with deviant lengths
+    vec_len = np.vectorize(len)
+    min_len = np.percentile(vec_len(insulin_data.sequence.unique()), 2.5)
+    max_len = np.percentile(vec_len(insulin_data.sequence.unique()), 97.5)
+    insulin_data = insulin_data.loc[
+        (min_len <= insulin_data.sequence.map(len))
+        & (insulin_data.sequence.map(len) <= max_len)]
+    
+    # Extract non-insulin sequences
+    non_insulin_data = raw_data.loc[raw_data['insulin'] == 'No']
+    # Sample random non-insulin sequences
+    sampled_entries = np.random.choice(non_insulin_data.entry.unique(),
+                                       size=len(insulin_data.entry.unique()),
+                                       replace=False)
     non_insulin_data = non_insulin_data.loc[non_insulin_data['entry'].isin(
         sampled_entries)]
+    # Filter out sequences with deviant lengths
+    non_insulin_data = non_insulin_data.loc[
+        (min_len <= non_insulin_data.sequence.map(len))
+        & (non_insulin_data.sequence.map(len) <= max_len)]
     
-    filtered_data = filtered_data.append(non_insulin_data)
+    # Merge insulin data and non-insulin data
+    filtered_data = insulin_data.append(non_insulin_data)
 
     # Keep only entry ID and sequence
     filtered_data = filtered_data[['entry', 'organism', 'bp', 'cc', 'mf',
@@ -69,6 +85,18 @@ if __name__ == '__main__':
     train_df = filtered_data.loc[filtered_data['entry'].isin(train_entries)]
     val_df = filtered_data.loc[filtered_data['entry'].isin(val_entries)]
     test_df = filtered_data.loc[filtered_data['entry'].isin(test_entries)]
+
+    plt.figure()
+    plt.hist(insulin_data.sequence.map(len))
+    plt.savefig('hist1.pdf')
+
+    plt.figure()
+    plt.hist(non_insulin_data.sequence.map(len))
+    plt.savefig('hist2.pdf')
+
+    plt.figure()
+    plt.hist(filtered_data.sequence.map(len))
+    plt.savefig('hist3.pdf')
 
     # Save data sets
     train_df.to_csv(

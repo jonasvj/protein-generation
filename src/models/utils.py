@@ -185,7 +185,7 @@ def train_model_cli():
     parser.add_argument(
         '--mb_size',
         help='learning rate during optimization',
-        type=float,
+        type=int,
         default=64)
     parser.add_argument(
         '--epochs',
