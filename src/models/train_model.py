@@ -203,7 +203,6 @@ if __name__ == '__main__':
             print('Training perplexity: {}, Validation perplexity: {}'.format(
                 train_perplexity[-1], val_perplexity[-1]))
             print('Learning rate: {}'.format(learning_rates[-1]))
-            print(torch.cuda.memory_summary(device, abbreviated=True))
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
