@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import torch
+import random
 import argparse
 import subprocess
 import numpy as np
@@ -39,13 +40,14 @@ class SequenceDataset(data.Dataset):
         return token_to_idx, idx_to_token
     
     def add_reverse(self, entries, sequences, keywords):
-        rev_sequences = np.empty(sequences.shape)
-        rev_entries = np.empty(entries.shape)
+        rev_sequences = np.empty(sequences.shape, dtype=object)
+        rev_entries = np.empty(entries.shape, dtype=object)
 
         for i, sequence in enumerate(sequences):
             rev_sequences[i] = sequence[::-1]
             rev_entries[i] = entries[i] + '_reverse'
-        
+        print(rev_sequences)
+        print(rev_entries)
         sequences = np.hstack((sequences, rev_sequences))
         entries = np.hstack((entries, rev_entries))
         keywords = np.vstack((keywords, keywords))
@@ -168,10 +170,14 @@ def custom_collate_fn(batch):
     return input_tensor, target_tensor, lengths
 
 def train_model_cli():
+    # Main parser
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         allow_abbrev=False,
         description='Scrip for training DL models')
+    parser.add_argument(
+        'output_file',
+        help='Name of output file')
     parser.add_argument(
         '--embedding_size',
         help='Size of embedding',
@@ -182,6 +188,12 @@ def train_model_cli():
         help='learning rate during optimization',
         type=float,
         default=0.001)
+    parser.add_argument(
+        '--weight_decay',
+        help='Amount of weight decay',
+        type=float,
+        default=0
+    )
     parser.add_argument(
         '--mb_size',
         help='learning rate during optimization',
@@ -200,9 +212,27 @@ def train_model_cli():
         default='sample'
     )
     parser.add_argument(
-        'output_file',
-        help='Name of output file')
-    
+        '--include_non_insulin',
+        help='Include non-insulin proteins in training',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--non_insulin_frac',
+        help='Fraction of available non-insulin proteins to use',
+        type=float,
+        default=1)
+    parser.add_argument(
+        '--include_reverse',
+        help='Includes reverse sequences in training',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--seed',
+        help='Seed for random number generators',
+        type=int,
+        default=42)
+
+    # Subparsers for specific models
     subparsers = parser.add_subparsers(
         help='Type of DL model',
         dest='model')
@@ -320,6 +350,21 @@ def get_repo_dir():
         stdout=subprocess.PIPE).stdout.decode().strip()
     
     return repo_dir
+
+def get_device():
+    """Gets pytorch device"""
+    if torch.cuda.is_available():
+        device = 'cuda:0'
+    else:
+        device = 'cpu'
+    
+    return device
+
+def set_seeds(seed):
+    """Sets seeds for reproducibility"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 if __name__ == '__main__':
     pass

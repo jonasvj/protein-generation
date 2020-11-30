@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os 
+import os
 import sys
 import time
 import torch
@@ -13,44 +13,64 @@ from torch.utils import data
 from wavenetX import WaveNetX
 from transformer import TransformerModel
 from utils import (SequenceDataset, custom_collate_fn, train_model_cli, 
-    get_repo_dir)
+    get_repo_dir, get_device, set_seeds)
 
 if __name__ == '__main__':
+    total_start = time.time()
     all_model_args = train_model_cli()
     model_args = all_model_args.copy()
     model = model_args.pop('model')
     mb_size = model_args.pop('mb_size')
     learning_rate = model_args.pop('learning_rate')
+    weight_decay = model_args.pop('weight_decay')
     num_epochs = model_args.pop('epochs')
     kw_method = model_args.pop('kw_method')
+    include_non_insulin = model_args.pop('include_non_insulin')
+    non_insulin_frac = model_args.pop('non_insulin_frac')
+    include_reverse = model_args.pop('include_reverse')
+    seed = model_args.pop('seed')
     output_file = model_args.pop('output_file')
     repo_dir = get_repo_dir()
-    
-    if torch.cuda.is_available():
-        device = 'cuda:0'
-    else:
-        device = 'cpu'
+    device = get_device()
+    set_seeds(seed)
     
     # Load data
     df_train = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/train_data.txt'),
         sep='\t', dtype='str')
-    
     df_val = pd.read_csv(
         os.path.join(repo_dir, 'data/processed/val_data.txt'),
         sep='\t', dtype='str')
+    
+    if include_non_insulin is False:
+        # Exclude non-insulin proteins 
+        df_train = df_train.loc[df_train.insulin == 'Yes']
+        df_train.reset_index(drop=True, inplace=True)
+    elif include_non_insulin is True and non_insulin_frac != 1:
+        # Sample subset of non-insulin proteins
+        insulin_data = df_train.loc[df_train.insulin == 'Yes']
+        non_insulin_data = df_train.loc[df_train.insulin == 'No']
+        sampled_entries = np.random.choice(
+            non_insulin_data.entry.unique(),
+            size=int(len(non_insulin_data.entry.unique())*non_insulin_frac),
+            replace=False)
+        non_insulin_data = non_insulin_data.loc[non_insulin_data.entry.isin(
+        sampled_entries)]
+        df_train = insulin_data.append(non_insulin_data)
+        df_train.reset_index(drop=True, inplace=True)
     
     # Create data sets
     train_data = SequenceDataset(entries=df_train['entry'],
                                  sequences=df_train['sequence'],
                                  keywords=df_train[['organism', 'bp', 'cc',
-                                 'mf']].to_numpy(),
-                                 kw_method=kw_method)
+                                 'mf', 'insulin']].to_numpy(),
+                                 kw_method=kw_method,
+                                 include_rev=include_reverse)
 
     val_data = SequenceDataset(entries=df_val['entry'],
                                sequences=df_val['sequence'], 
                                keywords=df_val[['organism', 'bp', 'cc',
-                               'mf']].to_numpy(),
+                               'mf', 'insulin']].to_numpy(),
                                kw_method=kw_method,
                                token_to_idx=train_data.token_to_idx)
     
@@ -74,8 +94,10 @@ if __name__ == '__main__':
                                  num_workers=4,
                                  collate_fn=custom_collate_fn)
     
-    n_train = len(train_data)
-    n_val = len(val_data)
+    all_model_args['n_globals'] = 5 # Number of keywords
+    all_model_args['n_train'] = len(train_data)
+    all_model_args['n_val'] = len(val_data)
+    all_model_args['n_outputs'] = len(train_data.amino_acids) + 3
     model_args['n_tokens'] = len(train_data.token_to_idx)
     model_args['pad_idx'] = train_data.token_to_idx['<PAD>']
 
@@ -90,9 +112,9 @@ if __name__ == '__main__':
     elif model == 'wavenet':
         use_global_input = model_args.pop('X')
         if use_global_input is True:
-            n_globals = 5
+            n_globals = all_model_args['n_globals']
             model_args['n_globals'] = n_globals
-            model_args['n_outputs'] = len(train_data.amino_acids) + 3
+            model_args['n_outputs'] = all_model_args['n_outputs']
             net = WaveNetX(**model_args)
         else:
             net = WaveNet(**model_args)
@@ -104,9 +126,10 @@ if __name__ == '__main__':
         ignore_index=model_args['pad_idx'],
         reduction='mean')
     
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate,
+        weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-
+    
     # Track loss and perplexity
     train_loss, val_loss = [], []
     train_perplexity, val_perplexity = [], []
@@ -185,13 +208,15 @@ if __name__ == '__main__':
         val_end = time.time()
 
         # Save loss and perplexity
-        train_loss.append(epoch_train_loss / np.ceil(n_train/mb_size))
-        val_loss.append(epoch_val_loss / np.ceil(n_val/mb_size))
+        train_loss.append(epoch_train_loss
+            / np.ceil(all_model_args['n_train'] / mb_size))
+        val_loss.append(epoch_val_loss
+            / np.ceil(all_model_args['n_val'] / mb_size))
 
-        train_perplexity.append(
-            epoch_train_perplexity / np.ceil(n_train/mb_size))
-        val_perplexity.append(
-            epoch_val_perplexity / np.ceil(n_val/mb_size))
+        train_perplexity.append(epoch_train_perplexity
+            / np.ceil(all_model_args['n_train'] / mb_size))
+        val_perplexity.append(epoch_val_perplexity
+            / np.ceil(all_model_args['n_val'] / mb_size))
         
         # Update learning rate
         scheduler.step(val_perplexity[-1])
@@ -211,6 +236,8 @@ if __name__ == '__main__':
     # Convert defaultdicts to regular dicts that can be pickled
     token_to_idx = dict(train_data.token_to_idx)
     idx_to_token = dict(train_data.idx_to_token)
+    all_model_args.update(model_args)
+    total_end = time.time()
 
     stats_dict = dict()
     stats_dict['idx_to_token'] = idx_to_token
@@ -220,7 +247,8 @@ if __name__ == '__main__':
     stats_dict['train_perplexity'] = train_perplexity
     stats_dict['val_perplexity'] = val_perplexity
     stats_dict['learning_rates'] = learning_rates
-    stats_dict['model_args'] = all_model_args.update(model_args)
+    stats_dict['model_args'] = all_model_args
+    stats_dict['total_time'] = round(total_end - total_start)
 
     out_file = open(
         os.path.join(repo_dir, 'models/' + output_file + '.pickle'), 'wb')

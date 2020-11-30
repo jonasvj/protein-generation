@@ -157,13 +157,14 @@ class WaveNetX(nn.Module):
         for residual_block in self.residual_blocks:
             residual, skip = residual_block(residual, emb_global)
             skips_total += skip
-        
+
+        #emb_mean, emb_max = skips_total.mean(dim=2), skips_total.max(dim=2)[0]
         output = torch.relu(skips_total)
         output = self.final_1x1_conv_1(output)
         output = torch.relu(output)
         output = self.final_1x1_conv_2(output)
-
-        return {'output': output}
+        emb_mean, emb_max = output.mean(dim=2), output.max(dim=2)[0]
+        return {'output': output, 'emb_mean': emb_mean, 'emb_max': emb_max}
 
 if __name__ == '__main__':
 
@@ -180,9 +181,9 @@ if __name__ == '__main__':
         n_dilations, kernel_size=kernel_size, stride=1,
         res_channels=res_channels, f_channels=f_channels)
 
-    input_ = torch.tensor([1, 2, 3, 3, 4, 0, 0]).unsqueeze(0)
-    input_global = torch.tensor([5,6,7,8]).unsqueeze(0)
+    input_ = torch.tensor([[1, 2, 3, 3, 4, 0, 0],
+                           [2, 3, 3, 4, 5, 1, 2]])
+    input_global = torch.tensor([[5, 6, 7, 8],
+                                 [5, 5, 6, 7]])
     output = net(input_, input_global)
     output = output['output']
-    print(output)
-    print(output.shape)
