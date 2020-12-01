@@ -35,17 +35,10 @@ class GruNet(nn.Module):
         self.decoder = nn.Linear(self.hidden_size*self.num_directions,
                                  self.n_tokens)
 
-    def forward(self, input_tensor, input_lengths, hidden_state=None):
+    def forward(self, input_tensor, input_lengths):
         """Expects input tensor of shape (batch, max_seq_len)"""
 
-        # Initialize hidden state
-        if hidden_state is None:
-            hidden_state = torch.zeros((self.n_layers*self.num_directions,
-                                        input_tensor.shape[0],
-                                        self.hidden_size),
-                                        device=input_tensor.device)
-        
-        # Embed
+        # Embed input
         emb = self.encoder(input_tensor)
         emb = self.drop(emb)
         # Reshape from (batch, max_seq_len, emb) to (max_seq_len, batch, emb)
@@ -53,9 +46,12 @@ class GruNet(nn.Module):
         
         # RNN
         emb = nn.utils.rnn.pack_padded_sequence(emb, input_lengths)
-        output, hidden_state = self.rnn(emb, hidden_state)
+        output, hidden_state = self.rnn(emb)
         output, _ = nn.utils.rnn.pad_packed_sequence(output)
         output = self.drop(output)
+        
+        # Get embedding of sequence
+        emb_seq = hidden_state[-1]
 
         # Decode 
         decoded = self.decoder(output)
@@ -64,7 +60,7 @@ class GruNet(nn.Module):
         # (batch, n_tokens, max_seq_length)
         decoded = decoded.permute(1,2,0)
 
-        return {'output': decoded, 'hidden': hidden_state}
+        return {'output': decoded, 'emb_1': emb_seq, 'emb_2': emb_seq}
 
 if __name__ == '__main__':
 
@@ -78,14 +74,10 @@ if __name__ == '__main__':
     net = GruNet(n_tokens, embedding_size, hidden_size, n_layers,
                  dropout=dropout, bidirectional=bidirectional)
 
-    input_ = torch.ones((1,5)).long()
-    input_[0,:] = torch.LongTensor([1,2,3,0,0])
-    input_lengths = [5]
+    input_ = torch.LongTensor([[1,4,5,1,2],[1,2,3,0,0]])
+    input_lengths = [5, 3]
 
-    print(input_)
-    print(input_.shape)
     output = net(input_, input_lengths)
-    print(output['output'])
-    print(output['hidden'])
-
-    output = net(input_, hidden)
+    print(output['output'].shape)
+    print(output['emb_1'].shape)
+    print(output['emb_2'].shape)

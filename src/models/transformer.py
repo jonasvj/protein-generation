@@ -88,19 +88,25 @@ class TransformerModel(nn.Module):
         emb = self.encoder(input_tensor) * math.sqrt(self.embedding_size)
         emb = self.pos_encoder(emb)
 
-        # Transformer encoder and decoder
+        # Transformer encoder
         output = self.transformer_encoder(emb, input_mask,
             input_key_padding_mask)
+        
+        # Get sequence embedding
+        emb_mean = output.mean(dim=0)
+        emb_max = output.max(dim=0)[0]
+
+        # Decoder
         output = self.decoder(output)
 
         # Reshape from (max_seq_len, batch, n_tokens) to
         # (batch, n_tokens, max_seq_len)
         output = output.permute(1,2,0)
 
-        return {'output': output}
+        return {'output': output, 'emb_1': emb_mean, 'emb_2': emb_max}
 
 if __name__ == '__main__':
-    n_tokens = 5
+    n_tokens = 7
     embedding_size = 4
     hidden_size = 12
     n_layers = 2
@@ -110,10 +116,9 @@ if __name__ == '__main__':
     net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
         n_layers, dropout=dropout)
 
-    input_ = torch.ones((1,3)).long()
-    input_[0,:] = torch.LongTensor([1,2,3])
+    input_ = torch.LongTensor([[1,4,5,1,2],[1,2,3,0,0]])
 
-    output = net(input_)
-
-    print(output['output'])
+    output = net(input_,)
     print(output['output'].shape)
+    print(output['emb_1'].shape)
+    print(output['emb_2'].shape)

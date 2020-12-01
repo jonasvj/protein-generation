@@ -35,23 +35,10 @@ class LstmNet(nn.Module):
         self.decoder = nn.Linear(self.hidden_size*self.num_directions,
                                  self.n_tokens)
 
-    def forward(self, input_tensor, input_lengths, state=None):
+    def forward(self, input_tensor, input_lengths):
         """Expects input tensor of shape (batch, max_seq_len)"""
-
-        # Initialize states
-        if state is None:
-            hidden_state = torch.zeros((self.n_layers*self.num_directions,
-                                  input_tensor.shape[0],
-                                  self.hidden_size),
-                                  device=input_tensor.device)
-            cell_state = torch.zeros((self.n_layers*self.num_directions,
-                                  input_tensor.shape[0],
-                                  self.hidden_size),
-                                  device=input_tensor.device)
-            
-            state = (hidden_state, cell_state)
         
-        # Embed
+        # Embed input
         emb = self.encoder(input_tensor)
         emb = self.drop(emb)
         # Reshape from (batch, max_seq_len, emb) to (max_seq_len, batch, emb)
@@ -59,9 +46,13 @@ class LstmNet(nn.Module):
         
         # RNN
         emb = nn.utils.rnn.pack_padded_sequence(emb, input_lengths)
-        output, state = self.rnn(emb, state)
+        output, state = self.rnn(emb)
         output, _ = nn.utils.rnn.pad_packed_sequence(output)
         output = self.drop(output)
+
+        # Get embedding of sequence
+        seq_emb_1 = state[0][-1]
+        seq_emb_2 = state[1][-1]
 
         # Decode 
         decoded = self.decoder(output)
@@ -70,11 +61,11 @@ class LstmNet(nn.Module):
         # (batch, n_tokens, max_seq_length)
         decoded = decoded.permute(1,2,0)
 
-        return {'output': decoded, 'hidden': state[0], 'cell': state[1]}
+        return {'output': decoded, 'emb_1': seq_emb_1, 'emb_2': seq_emb_2}
 
 if __name__ == '__main__':
 
-    n_tokens = 5
+    n_tokens = 7
     embedding_size = 3
     hidden_size = 12
     n_layers = 2
@@ -84,12 +75,11 @@ if __name__ == '__main__':
     net = LstmNet(n_tokens, embedding_size, hidden_size, n_layers,
                  dropout=dropout, bidirectional=bidirectional)
 
-    input_ = torch.ones((1,3)).long()
-    input_[0,:] = torch.LongTensor([1,2,3])
-    input_lengths = [3]
+    input_ = torch.LongTensor([[1,4,5,1,2],[1,2,3,0,0]])
+    input_lengths = [5, 3]
 
     output = net(input_, input_lengths)
-    print(output['output'])
-    print(output['hidden'])
-    print(output['cell'])
+    print(output['output'].shape)
+    print(output['emb_1'].shape)
+    print(output['emb_2'].shape)
 
