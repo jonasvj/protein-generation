@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from sklearn.manifold import TSNE
 from collections import defaultdict
-from utils import SequenceDataset, custom_collate_fn, get_repo_dir, get_device
+from utils import SequenceDataset, custom_collate_fn, get_repo_dir, get_device, set_seeds
 
 def plot_learning_curves(stats_dict):
     """Plot learning curves"""
@@ -86,9 +86,7 @@ def calculate_perplexities(n_test, test_loader, net):
     
 
 if __name__ == '__main__':
-    np.random.random(42)
-    random.seed(42)
-    torch.manual_seed(42)
+    set_seeds(42)
 
     model_name = sys.argv[1]
     repo_dir = get_repo_dir()
