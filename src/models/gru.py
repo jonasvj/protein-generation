@@ -63,21 +63,15 @@ class GruNet(nn.Module):
         return {'output': decoded, 'emb_1': emb_seq, 'emb_2': emb_seq}
 
 if __name__ == '__main__':
+    models_args = {'n_tokens': 10,
+                   'embedding_size': 5,
+                   'hidden_size': 32,
+                   'n_layers': 2,
+                   'dropout': 0.5,
+                   'bidirectional': False,
+                   'pad_idx': 0}
 
-    n_tokens = 7
-    embedding_size = 3
-    hidden_size = 12
-    n_layers = 2
-    dropout = 0.5
-    bidirectional = False
-
-    net = GruNet(n_tokens, embedding_size, hidden_size, n_layers,
-                 dropout=dropout, bidirectional=bidirectional)
-
+    net = GruNet(**models_args)
     input_ = torch.LongTensor([[1,4,5,1,2],[1,2,3,0,0]])
     input_lengths = [5, 3]
-
     output = net(input_, input_lengths)
-    print(output['output'].shape)
-    print(output['emb_1'].shape)
-    print(output['emb_2'].shape)

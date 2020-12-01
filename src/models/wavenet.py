@@ -33,60 +33,66 @@ class CausalConv1d(torch.nn.Conv1d):
 
 class ResidualBlock(nn.Module):
     """Residual block of WaveNet architecture"""
-    def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-    dilation=1):
+    def __init__(self, residual_channels, dilation_channels, skip_channels,
+    kernel_size=1, dilation=1):
         super(ResidualBlock, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.residual_channels = residual_channels
+        self.dilation_channels = dilation_channels
+        self.skip_channels = skip_channels
         self.kernel_size = kernel_size
-        self.stride = stride
         self.dilation = dilation
 
-        self.filter_conv = CausalConv1d(in_channels=self.in_channels,
-                                        out_channels=self.in_channels,
+        self.filter_conv = CausalConv1d(in_channels=self.residual_channels,
+                                        out_channels=self.dilation_channels,
                                         kernel_size=self.kernel_size,
-                                        stride=self.stride,
                                         dilation=self.dilation)
         
-        self.gated_conv = CausalConv1d(in_channels=self.in_channels,
-                                        out_channels=self.in_channels,
-                                        kernel_size=self.kernel_size,
-                                        stride=self.stride,
-                                        dilation=self.dilation)
+        self.gated_conv = CausalConv1d(in_channels=self.residual_channels,
+                                       out_channels=self.dilation_channels,
+                                       kernel_size=self.kernel_size,
+                                       dilation=self.dilation)
         
-        self._1x1_conv = nn.Conv1d(in_channels=self.in_channels,
-                                  out_channels=self.out_channels,
-                                  kernel_size=1,
-                                  stride=1,
-                                  dilation=1)
+        self._1x1_conv_res = nn.Conv1d(in_channels=self.dilation_channels,
+                                       out_channels=self.residual_channels,
+                                       kernel_size=1,
+                                       dilation=1)
+        
+        self._1x1_conv_skip = nn.Conv1d(in_channels=self.dilation_channels,
+                                        out_channels=self.skip_channels,
+                                        kernel_size=1,
+                                        dilation=1)
     
     def forward(self, x):
         # Filter convolution and gated convolution
-        x_f = torch.tanh(self.filter_conv(x))
-        x_g = torch.sigmoid(self.gated_conv(x))
+        x_f = self.filter_conv(x)
+        x_g = self.gated_conv(x)
+      
+        z_f = torch.tanh(x_f)
+        z_g = torch.sigmoid(x_g)
         
         # Multiply filter convolution and gated convolution elementwise
-        skip = torch.mul(x_f, x_g)
-        skip = self._1x1_conv(skip)
+        z = torch.mul(z_f, z_g)
+        skip = self._1x1_conv_skip(z)
+        residual = x + self._1x1_conv_res(z)
 
-        residual = x + skip
-
-        return residual, skip
+        return skip, residual
 
 class WaveNet(nn.Module):
-    """Neural network with the WaveNet architecture"""
+    """Neural network with WaveNet architecture including global inputs"""
 
-    def __init__(self, n_tokens, embedding_size, n_dilations, kernel_size=2, 
-    stride=1, res_channels=16, f_channels=8, pad_idx=0):
+    def __init__(self, n_tokens, embedding_size, n_dilations=4, kernel_size=2,
+    residual_channels=16, dilation_channels=16, skip_channels=16,
+    final_channels=16, pad_idx=0):
         super(WaveNet, self).__init__()
         self.model = 'wavenet'
         self.n_tokens = n_tokens
         self.embedding_size = embedding_size
         self.n_dilations = n_dilations
         self.kernel_size = kernel_size
-        self.stride = stride
-        self.residual_channels = res_channels
-        self.final_channels = f_channels
+        self.residual_channels = residual_channels
+        self.dilation_channels = dilation_channels
+        self.skip_channels = skip_channels
+        self.final_channels = final_channels
         self.pad_idx = pad_idx
 
         self.encoder = nn.Embedding(self.n_tokens, self.embedding_size,
@@ -95,68 +101,74 @@ class WaveNet(nn.Module):
         self.causal_conv = CausalConv1d(in_channels=self.embedding_size,
                                         out_channels=self.residual_channels,
                                         kernel_size=self.kernel_size,
-                                        stride=self.stride,
                                         dilation=1)
 
         self.residual_blocks = nn.ModuleList()
 
         for i in range(self.n_dilations):
-            dilation = 2**(i+1)
+            dilation = 2**i
             self.residual_blocks.append(
-                ResidualBlock(in_channels=self.residual_channels,
-                              out_channels=self.residual_channels,
+                ResidualBlock(residual_channels=self.residual_channels,
+                              dilation_channels=self.dilation_channels,
+                              skip_channels=self.skip_channels,
                               kernel_size=self.kernel_size,
-                              stride=self.stride,
                               dilation=dilation))
         
-        self.final_1x1_conv_1 = nn.Conv1d(in_channels=self.residual_channels,
-                                          out_channels=self.final_channels,
-                                          kernel_size=1,
-                                          stride=1,
-                                          dilation=1)
+        self.final_1x1_conv = nn.Conv1d(in_channels=self.skip_channels,
+                                        out_channels=self.final_channels,
+                                        kernel_size=1,
+                                        dilation=1)
         
-        self.final_1x1_conv_2 = nn.Conv1d(in_channels=self.final_channels,
-                                          out_channels=self.n_tokens,
-                                          kernel_size=1,
-                                          stride=1,
-                                          dilation=1)
+        self.out_1x1_conv = nn.Conv1d(in_channels=self.final_channels,
+                                      out_channels=self.n_tokens,
+                                      kernel_size=1,
+                                      dilation=1)
 
     def forward(self, input_tensor):
-        """Expects input of shape (batch, max_seq_len)"""
+        """Expects input of shape (batch, max_seq_len) and 
+           (batch, n_globals)"""
         # Embedding
         emb = self.encoder(input_tensor)
 
         # Reshape from (batch, max_seq_len, emb) to (batch, emb, max_seq_len)
         emb = emb.permute(0,2,1)
 
+        # First causal convolution
         residual = self.causal_conv(emb)
-
-        skips_total = torch.zeros(residual.shape, device=input_tensor.device)
+        
+        # Residual blocks
+        skips_total = torch.zeros((residual.size(0),
+                                   self.skip_channels,
+                                   residual.size(2)),
+                                  device=input_tensor.device)
         for residual_block in self.residual_blocks:
-            residual, skip = residual_block(residual)
+            skip, residual = residual_block(residual)
             skips_total += skip
         
         output = torch.relu(skips_total)
-        output = self.final_1x1_conv_1(output)
+        output = self.final_1x1_conv(output)
         output = torch.relu(output)
-        output = self.final_1x1_conv_2(output)
 
-        return {'output': output}
+        # Get sequence embedding
+        emb_mean = output.mean(dim=2)
+        emb_max = output.max(dim=2)[0]
+
+        # Decode ouput
+        output = self.out_1x1_conv(output)
+
+        return {'output': output, 'emb_1': emb_mean, 'emb_2': emb_max}
 
 if __name__ == '__main__':
+    models_args = {'n_tokens': 10,
+                   'embedding_size': 12,
+                   'n_dilations': 4,
+                   'kernel_size': 2,
+                   'residual_channels': 16,
+                   'dilation_channels': 32,
+                   'skip_channels': 8,
+                   'final_channels': 4,
+                   'pad_idx': 0}
 
-    n_tokens = 7
-    embedding_size = 3
-    n_dilations = 2
-    kernel_size = 2
-    res_channels=16
-    f_channels=8
-
-    net = WaveNet(n_tokens, embedding_size, n_dilations, kernel_size, stride=1,
-        res_channels=res_channels, f_channels=f_channels)
-
-    input_ = torch.tensor([1, 2, 3, 3, 4, 0, 0]).unsqueeze(0)
+    net = WaveNet(**models_args)
+    input_ = torch.LongTensor([[1,4,5,1,2], [1,2,3,0,0]])
     output = net(input_)
-    output = output['output']
-    print(output)
-    print(output.shape)

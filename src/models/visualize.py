@@ -66,8 +66,8 @@ def calculate_perplexities(n_test, test_loader, net):
             # Forward pass
             output = net(*net_inputs)
             outputs = output['output']
-            emb_mean.append(output['emb_mean'].detach().cpu())
-            emb_max.append(output['emb_max'].detach().cpu())
+            emb_mean.append(output['emb_1'].detach().cpu())
+            emb_max.append(output['emb_2'].detach().cpu())
 
             # Loss
             loss = F.cross_entropy(outputs, targets, reduction='none',

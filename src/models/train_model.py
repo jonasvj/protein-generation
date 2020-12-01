@@ -249,6 +249,8 @@ if __name__ == '__main__':
     stats_dict['learning_rates'] = learning_rates
     stats_dict['model_args'] = all_model_args
     stats_dict['total_time'] = round(total_end - total_start)
+    stats_dict['n_parameters'] = sum(
+        p.numel() for p in net.parameters() if p.requires_grad)
 
     out_file = open(
         os.path.join(repo_dir, 'models/' + output_file + '.pickle'), 'wb')

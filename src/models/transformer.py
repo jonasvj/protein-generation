@@ -106,19 +106,15 @@ class TransformerModel(nn.Module):
         return {'output': output, 'emb_1': emb_mean, 'emb_2': emb_max}
 
 if __name__ == '__main__':
-    n_tokens = 7
-    embedding_size = 4
-    hidden_size = 12
-    n_layers = 2
-    n_heads=2
-    dropout = 0.5
+    models_args = {'n_tokens': 10,
+                   'embedding_size': 12,
+                   'n_heads': 4,
+                   'hidden_size': 32,
+                   'n_layers': 2,
+                   'dropout': 0.5,
+                   'pad_idx': 0,
+                   'max_len': 500}
 
-    net = TransformerModel(n_tokens, embedding_size, n_heads, hidden_size,
-        n_layers, dropout=dropout)
-
+    net = TransformerModel(**models_args)
     input_ = torch.LongTensor([[1,4,5,1,2],[1,2,3,0,0]])
-
-    output = net(input_,)
-    print(output['output'].shape)
-    print(output['emb_1'].shape)
-    print(output['emb_2'].shape)
+    output = net(input_)

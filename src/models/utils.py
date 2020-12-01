@@ -46,8 +46,7 @@ class SequenceDataset(data.Dataset):
         for i, sequence in enumerate(sequences):
             rev_sequences[i] = sequence[::-1]
             rev_entries[i] = entries[i] + '_reverse'
-        print(rev_sequences)
-        print(rev_entries)
+        
         sequences = np.hstack((sequences, rev_sequences))
         entries = np.hstack((entries, rev_entries))
         keywords = np.vstack((keywords, keywords))
@@ -321,18 +320,23 @@ def train_model_cli():
         type=int,
         default=2)
     parser_wavenet.add_argument(
-        '--stride',
-        help='Stride length in convolution',
-        type=int,
-        default=1)
-    parser_wavenet.add_argument(
-        '--res_channels',
-        help='Number of channels in residual blocks',
+        '--residual_channels',
+        help='Number of channels between residual blocks',
         type=int,
         default=16)
     parser_wavenet.add_argument(
-        '--f_channels',
-        help='Number of channels in final convolution',
+        '--dilation_channels',
+        help='Number of channels inside residual blocks',
+        type=int,
+        default=16)
+    parser_wavenet.add_argument(
+        '--skip_channels',
+        help='Number of channels in skip connections',
+        type=int,
+        default=16)
+    parser_wavenet.add_argument(
+        '--final_channels',
+        help='Number of final channels',
         type=int,
         default=16)
     parser_wavenet.add_argument(
