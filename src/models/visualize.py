@@ -112,7 +112,6 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'data/processed/test_data.txt'),
         sep='\t', dtype='str')
     
-    model_args['kw_method'] = 'sample'
     if model_args['kw_method'] == 'sample':
         new_rows = list()
         for entry in df_test.entry.unique():
@@ -178,7 +177,7 @@ if __name__ == '__main__':
                 (net_inputs[0], prediction.unsqueeze(1)), dim=1)
 
             if net.model in ['gru', 'lstm']:
-                net_inputs[1] += 1
+                net_inputs[1][0] += 1
         
         return net_inputs[0]
 
