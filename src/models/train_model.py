@@ -98,6 +98,7 @@ if __name__ == '__main__':
     all_model_args['n_train'] = len(train_data)
     all_model_args['n_val'] = len(val_data)
     all_model_args['n_outputs'] = len(train_data.amino_acids) + 3
+    all_model_args['max_len'] = max_len
     model_args['n_tokens'] = len(train_data.token_to_idx)
     model_args['pad_idx'] = train_data.token_to_idx['<PAD>']
 
