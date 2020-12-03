@@ -92,7 +92,7 @@ class WaveNetX(nn.Module):
     """Neural network with WaveNet architecture including global inputs"""
 
     def __init__(self, n_tokens, n_globals, n_outputs, embedding_size,
-    n_dilations=4, kernel_size=2, residual_channels=16, dilation_channels=16,
+    n_dilations=4, n_repeats=1, kernel_size=2, residual_channels=16, dilation_channels=16,
     skip_channels=16, final_channels=16, pad_idx=0):
         super(WaveNetX, self).__init__()
         self.model = 'wavenetX'
@@ -101,6 +101,7 @@ class WaveNetX(nn.Module):
         self.n_outputs = n_outputs
         self.embedding_size = embedding_size
         self.n_dilations = n_dilations
+        self.n_repeats = n_repeats
         self.kernel_size = kernel_size
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
@@ -117,9 +118,10 @@ class WaveNetX(nn.Module):
                                         dilation=1)
 
         self.residual_blocks = nn.ModuleList()
+        
+        self.dilations = [2**i for i in range(self.n_dilations)]*self.n_repeats
 
-        for i in range(self.n_dilations):
-            dilation = 2**i
+        for dilation in self.dilations:
             self.residual_blocks.append(
                 ResidualBlock(residual_channels=self.residual_channels,
                               dilation_channels=self.dilation_channels,
@@ -181,7 +183,8 @@ if __name__ == '__main__':
                    'n_outputs': 5,
                    'embedding_size': 12,
                    'n_dilations': 4,
-                   'kernel_size':2,
+                   'n_repeats': 2,
+                   'kernel_size': 2,
                    'residual_channels': 16,
                    'dilation_channels': 32,
                    'skip_channels': 8,

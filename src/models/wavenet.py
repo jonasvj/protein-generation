@@ -80,14 +80,15 @@ class ResidualBlock(nn.Module):
 class WaveNet(nn.Module):
     """Neural network with WaveNet architecture including global inputs"""
 
-    def __init__(self, n_tokens, embedding_size, n_dilations=4, kernel_size=2,
-    residual_channels=16, dilation_channels=16, skip_channels=16,
-    final_channels=16, pad_idx=0):
+    def __init__(self, n_tokens, embedding_size, n_dilations=4, n_repeats=1,
+    kernel_size=2, residual_channels=16, dilation_channels=16,
+    skip_channels=16, final_channels=16, pad_idx=0):
         super(WaveNet, self).__init__()
         self.model = 'wavenet'
         self.n_tokens = n_tokens
         self.embedding_size = embedding_size
         self.n_dilations = n_dilations
+        self.n_repeats = n_repeats
         self.kernel_size = kernel_size
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
@@ -103,10 +104,10 @@ class WaveNet(nn.Module):
                                         kernel_size=self.kernel_size,
                                         dilation=1)
 
+        self.dilations = [2**i for i in range(self.n_dilations)]*self.n_repeats
         self.residual_blocks = nn.ModuleList()
 
-        for i in range(self.n_dilations):
-            dilation = 2**i
+        for dilation in self.dilations:
             self.residual_blocks.append(
                 ResidualBlock(residual_channels=self.residual_channels,
                               dilation_channels=self.dilation_channels,
@@ -162,6 +163,7 @@ if __name__ == '__main__':
     models_args = {'n_tokens': 10,
                    'embedding_size': 12,
                    'n_dilations': 4,
+                   'n_repeats': 2,
                    'kernel_size': 2,
                    'residual_channels': 16,
                    'dilation_channels': 32,

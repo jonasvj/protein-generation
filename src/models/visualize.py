@@ -40,7 +40,7 @@ def plot_learning_curves(stats_dict):
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc=0)
-    ax1.grid(True)
+    ax2.grid(True)
 
     return fig
 
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         prediction = torch.multinomial(logits, 1)
 
         return prediction
-
+    """
     max_len = 278
     n_keywords = 5
     k = 3
@@ -293,8 +293,7 @@ if __name__ == '__main__':
     np.save(
         os.path.join(repo_dir, 'models/' + model_name + '_mut_results.npy'),
         mut_results)
-    
-
+    """
 
 
 

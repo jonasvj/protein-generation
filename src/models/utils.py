@@ -315,6 +315,11 @@ def train_model_cli():
         type=int,
         default=2)
     parser_wavenet.add_argument(
+        '--n_repeats',
+        help='Number of time to repeat the dilations',
+        type=int,
+        default=1)
+    parser_wavenet.add_argument(
         '--kernel_size',
         help='Size of convolution kernel',
         type=int,
