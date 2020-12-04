@@ -32,7 +32,6 @@ if __name__ == '__main__':
     output_file = model_args.pop('output_file')
     repo_dir = get_repo_dir()
     device = get_device()
-    device = 'cuda:1'
     set_seeds(seed)
     
     # Load data
