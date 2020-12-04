@@ -163,7 +163,7 @@ if __name__ == '__main__':
     # Box plot of perplexities
     fig, ax = plt.subplots(figsize=(8,4))
     df_test.boxplot(column=['perplexity'], ax=ax)
-    ax.set_title('Average perplexity: {}'.format(round(perplexities.mean(),4)))
+    ax.set_title('Average perplexity: {}'.format(round(np.mean(perplexities),4)))
     fig.savefig(
         os.path.join(repo_dir, 'models/' + model_name + '_box_plot.pdf'))
     
@@ -274,6 +274,7 @@ if __name__ == '__main__':
             mut_results[i, j] = mut_align.score / (mut_align.end
                 - mut_align.start + 1)
 
+    mut_label = "{}% mutation baseline".format(int(mutation_rate*100))
     gen_mean = np.nanmean(gen_results, axis=0)
     gen_std = np.nanstd(gen_results, axis=0)
     mut_mean = np.nanmean(mut_results, axis=0)
@@ -282,7 +283,7 @@ if __name__ == '__main__':
     ax.errorbar(context_props, gen_mean, yerr=gen_std, alpha=.75, fmt='.:',
         capsize=3, capthick=1, c='C0', label='Generated')
     ax.errorbar(context_props, mut_mean, yerr=mut_std, alpha=.75, fmt='.:',
-        capsize=3, capthick=1, c='C1', label='Mutation baseline')
+        capsize=3, capthick=1, c='C1', label=mut_label)
     ax.fill_between(context_props, gen_mean - gen_std, gen_mean + gen_std, 
         alpha=.25, color='C0')
     ax.fill_between(context_props, mut_mean - mut_std, mut_mean + mut_std, 
