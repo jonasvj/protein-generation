@@ -110,7 +110,7 @@ if __name__ == '__main__':
                    'embedding_size': 12,
                    'n_heads': 4,
                    'hidden_size': 32,
-                   'n_layers': 2,
+                   'n_layers': 3,
                    'dropout': 0.5,
                    'pad_idx': 0,
                    'max_len': 500}

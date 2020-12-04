@@ -139,6 +139,11 @@ if __name__ == '__main__':
     perplexities, emb_1, emb_2 = get_ppl_emb(test_loader, net,
                                              model_args['pad_idx'])
     df_test['perplexity'] = perplexities
+
+    np.save(
+        os.path.join(repo_dir, 'models/' + model_name + '_perplexities.npy'),
+        perplexities)
+
     emb_1 = torch.cat(emb_1, dim=0).numpy()
     emb_2 = torch.cat(emb_2, dim=0).numpy()
     
@@ -157,7 +162,8 @@ if __name__ == '__main__':
     
     # Box plot of perplexities
     fig, ax = plt.subplots(figsize=(8,4))
-    df_test.boxplot(column=['perplexity'], by='cc', ax=ax)
+    df_test.boxplot(column=['perplexity'], ax=ax)
+    ax.set_title('Average perplexity: {}'.format(round(perplexities.mean(),4)))
     fig.savefig(
         os.path.join(repo_dir, 'models/' + model_name + '_box_plot.pdf'))
     
@@ -193,15 +199,17 @@ if __name__ == '__main__':
         prediction = torch.multinomial(logits, 1)
 
         return prediction
-    """
-    max_len = 278
+    
+    max_len = 278*2
     n_keywords = 5
-    k = 3
-    mutation_rate = 0.5
+    k = 1
+    mutation_rate = 0.75
     context_props = np.arange(0.1, 1, 0.1)
     amino_acids = test_data.amino_acids
     gen_results = np.zeros((len(df_test), len(context_props)))
     mut_results = np.zeros((len(df_test), len(context_props)))
+    gen_results[:] = np.nan
+    mut_results[:] = np.nan
     
     # Do protein generation
     for i, (inputs, targets, lengths) in enumerate(test_loader):
@@ -232,7 +240,7 @@ if __name__ == '__main__':
             
             # Generate sequence with model
             gen_seq = generate_sequence(net, net_inputs, token_to_idx['<EOS>'],
-                                        max_gen_len, k)
+                                        max_len, k)
             
             # Convert generated sequence to actual AA sequence
             gen_seq = [idx_to_token[idx.item()] for idx in gen_seq[0]
@@ -241,6 +249,7 @@ if __name__ == '__main__':
 
             # If only <EOS> were generated, add 1 random AA 
             if len(gen_seq) == context:
+                continue
                 gen_seq += random.choice(amino_acids)
             
             # Generate mutated sequence
@@ -261,14 +270,14 @@ if __name__ == '__main__':
                 matlist.blosum62, -0.5, -0.1, one_alignment_only=True)[0]
 
             gen_results[i, j] = gen_align.score / (gen_align.end
-                - gen_align.start)
+                - gen_align.start + 1)
             mut_results[i, j] = mut_align.score / (mut_align.end
-                - mut_align.start)
-    
-    gen_mean = gen_results.mean(axis=0)
-    gen_std = gen_results.std(axis=0)
-    mut_mean = mut_results.mean(axis=0)
-    mut_std = mut_results.std(axis=0)
+                - mut_align.start + 1)
+
+    gen_mean = np.nanmean(gen_results, axis=0)
+    gen_std = np.nanstd(gen_results, axis=0)
+    mut_mean = np.nanmean(mut_results, axis=0)
+    mut_std = np.nanstd(mut_results, axis=0)
     fig, ax = plt.subplots(figsize=(8,4))
     ax.errorbar(context_props, gen_mean, yerr=gen_std, alpha=.75, fmt='.:',
         capsize=3, capthick=1, c='C0', label='Generated')
@@ -293,7 +302,7 @@ if __name__ == '__main__':
     np.save(
         os.path.join(repo_dir, 'models/' + model_name + '_mut_results.npy'),
         mut_results)
-    """
+    
 
 
 

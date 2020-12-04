@@ -32,6 +32,7 @@ if __name__ == '__main__':
     output_file = model_args.pop('output_file')
     repo_dir = get_repo_dir()
     device = get_device()
+    device = 'cuda:1'
     set_seeds(seed)
     
     # Load data
@@ -78,7 +79,8 @@ if __name__ == '__main__':
     max_len = 0
     for input_, target in train_data:
         max_len = max(max_len, len(input_))
-    
+    max_len *= 2
+
     # Prepare data loaders
     train_loader = data.DataLoader(train_data,
                                    batch_size=mb_size,
