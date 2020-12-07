@@ -84,7 +84,7 @@ if __name__ == '__main__':
     model_name = sys.argv[1]
     repo_dir = get_repo_dir()
     device = get_device()
-    device = 'cuda:1'
+    device = 'cuda:0'
 
     # Get dictionary with model stats, arguments etc.
     stats_dict_file = open(
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     stats_dict = pickle.load(stats_dict_file)
     stats_dict_file.close()
     model_args = stats_dict['model_args']
+    print('Number of parameters:', stats_dict['n_parameters'])
    
     # Load model 
     net = torch.load(os.path.join(repo_dir, 'models/' + model_name + '.pt'))
@@ -152,6 +153,26 @@ if __name__ == '__main__':
     X_emb_2 = TSNE(n_components=2).fit_transform(emb_2)
 
     # Plot sequence embedding
+    fig, ax = plt.subplots(figsize=(8,4))
+
+    colors = df_test.mf.factorize()[0]
+    labels = df_test.mf.factorize()[1].to_numpy()
+
+    scatter = ax.scatter(X_emb_1[:, 0], X_emb_1[:, 1],
+                        c=colors,
+                        cmap=plt.get_cmap("tab10"),
+                        s=2,
+                        alpha=0.8)
+    
+    legend1 = ax.legend(scatter.legend_elements()[0], labels, loc=0)
+    ax.add_artist(legend1)
+
+    
+    fig.savefig(
+        os.path.join(repo_dir, 'models/' + model_name + '_emb_plot.pdf'))
+    
+    """
+    # Plot sequence embedding
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8,4))
     ax1.scatter(X_emb_1[:, 0], X_emb_1[:, 1], c=df_test.mf.factorize()[0],
         s=2, alpha=0.8)
@@ -159,6 +180,7 @@ if __name__ == '__main__':
         s=2, alpha=0.8)
     fig.savefig(
         os.path.join(repo_dir, 'models/' + model_name + '_emb_plot.pdf'))
+    """
     
     # Box plot of perplexities
     fig, ax = plt.subplots(figsize=(8,4))
@@ -168,7 +190,6 @@ if __name__ == '__main__':
         os.path.join(repo_dir, 'models/' + model_name + '_box_plot.pdf'))
     
     # Protein generation
-
     def generate_sequence(net, net_inputs, eos_idx, max_len, k):
         """Generates a sequence using a trained model"""
         prediction = torch.tensor(0)
@@ -200,10 +221,11 @@ if __name__ == '__main__':
 
         return prediction
     
+    """
     max_len = 278*2
     n_keywords = 5
     k = 1
-    mutation_rate = 0.75
+    mutation_rate = 0.5
     context_props = np.arange(0.1, 1, 0.1)
     amino_acids = test_data.amino_acids
     gen_results = np.zeros((len(df_test), len(context_props)))
@@ -303,7 +325,7 @@ if __name__ == '__main__':
     np.save(
         os.path.join(repo_dir, 'models/' + model_name + '_mut_results.npy'),
         mut_results)
-    
+    """
 
 
 
