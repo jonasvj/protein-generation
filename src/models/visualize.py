@@ -153,6 +153,27 @@ if __name__ == '__main__':
     X_emb_2 = TSNE(n_components=2).fit_transform(emb_2)
 
     # Plot sequence embedding
+    fig, (ax,lax) = plt.subplots(ncols=2, gridspec_kw={"width_ratios":[3,1]})
+    colors = df_test.mf.factorize()[0]
+    labels = df_test.mf.factorize()[1].to_numpy()
+    labels[4] = "Devolpmental\nprotein"
+
+    scatter = ax.scatter(X_emb_1[:, 0], X_emb_1[:, 1],
+                        c=colors,
+                        cmap=plt.get_cmap("tab10"),
+                        s=2,
+                        alpha=0.8)
+    
+    legend1 = lax.legend(scatter.legend_elements()[0], labels, loc=0, borderaxespad=0)
+    lax.add_artist(legend1)
+    lax.axis("off")
+    ax.set_title('Sequence embedding')
+    plt.tight_layout()
+    fig.savefig(
+        os.path.join(repo_dir, 'models/' + model_name + '_emb_plot.pdf'))
+
+
+    """
     fig, ax = plt.subplots(figsize=(8,4))
 
     colors = df_test.mf.factorize()[0]
@@ -171,7 +192,7 @@ if __name__ == '__main__':
     fig.savefig(
         os.path.join(repo_dir, 'models/' + model_name + '_emb_plot.pdf'))
     
-    """
+    
     # Plot sequence embedding
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8,4))
     ax1.scatter(X_emb_1[:, 0], X_emb_1[:, 1], c=df_test.mf.factorize()[0],
@@ -180,7 +201,7 @@ if __name__ == '__main__':
         s=2, alpha=0.8)
     fig.savefig(
         os.path.join(repo_dir, 'models/' + model_name + '_emb_plot.pdf'))
-    """
+    
     
     # Box plot of perplexities
     fig, ax = plt.subplots(figsize=(8,4))
@@ -191,7 +212,7 @@ if __name__ == '__main__':
     
     # Protein generation
     def generate_sequence(net, net_inputs, eos_idx, max_len, k):
-        """Generates a sequence using a trained model"""
+        #Generates a sequence using a trained model
         prediction = torch.tensor(0)
         while prediction.item() != eos_idx and net_inputs[0].size(1) < max_len:
             # Get logits for next token
@@ -221,7 +242,7 @@ if __name__ == '__main__':
 
         return prediction
     
-    """
+    
     max_len = 278*2
     n_keywords = 5
     k = 1
