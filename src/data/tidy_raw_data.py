@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 import os
-import sys
 import subprocess
 from itertools import product
+from src.utils import get_repo_dir
 
 if __name__ == '__main__':
 
-    repo_dir = subprocess.run(
-        ['git', 'rev-parse', '--show-toplevel'],
-        stdout=subprocess.PIPE).stdout.decode().strip()
-    
+    repo_dir = get_repo_dir()
+
     data_file = open(
-        os.path.join(repo_dir, 'data/raw/uniprot_table_merged.txt'), 'r')
+        os.path.join(repo_dir, 'data/interim/uniprot_table_merged.txt'), 'r')
     
     keyword_file = open(
         os.path.join(repo_dir, 'data/raw/uniprot_keywords.txt'), 'r')

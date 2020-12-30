@@ -120,6 +120,7 @@ class WaveNetX(nn.Module):
         self.residual_blocks = nn.ModuleList()
         
         self.dilations = [2**i for i in range(self.n_dilations)]*self.n_repeats
+        self.dilations = self.dilations[1:]
 
         for dilation in self.dilations:
             self.residual_blocks.append(

@@ -3,12 +3,11 @@ import os
 import subprocess
 import urllib.parse
 import urllib.request
+from src.utils import get_repo_dir
 
 if __name__ == '__main__':
     
-    repo_dir = subprocess.run(
-        ['git', 'rev-parse', '--show-toplevel'],
-        stdout=subprocess.PIPE).stdout.decode().strip()
+    repo_dir = get_repo_dir()
     
     url = 'https://www.uniprot.org/'
 
@@ -43,9 +42,11 @@ if __name__ == '__main__':
         url + 'uniprot/?' + query,
         os.path.join(repo_dir, 'data/raw/uniprot_table_not_insulin.txt'))
     
-    #Add 'insulin related' column to both files
-    insulin_data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_insulin.txt'), 'r')
-    insulin_edited = open(os.path.join(repo_dir, 'data/raw/insulin_table.txt'), 'w')
+    # Add 'Insulin' column to both files
+    insulin_data = open(os.path.join(repo_dir,
+        'data/raw/uniprot_table_insulin.txt'), 'r')
+    insulin_edited = open(os.path.join(repo_dir,
+        'data/interim/insulin_table.txt'), 'w')
 
     first = True
     for line in insulin_data:
@@ -58,8 +59,10 @@ if __name__ == '__main__':
     insulin_data.close()
     insulin_edited.close()
     
-    not_insulin_data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_not_insulin.txt'), 'r')
-    not_insulin_edited = open(os.path.join(repo_dir, 'data/raw/not_insulin_table.txt'), 'w')
+    not_insulin_data = open(os.path.join(repo_dir,
+        'data/raw/uniprot_table_not_insulin.txt'), 'r')
+    not_insulin_edited = open(os.path.join(repo_dir,
+        'data/interim/not_insulin_table.txt'), 'w')
 
     first = True
     for line in not_insulin_data:
@@ -71,9 +74,12 @@ if __name__ == '__main__':
     not_insulin_data.close()
     not_insulin_edited.close()
 
-    insulin_edited = open(os.path.join(repo_dir, 'data/raw/insulin_table.txt'), 'r')
-    not_insulin_edited = open(os.path.join(repo_dir, 'data/raw/not_insulin_table.txt'), 'r')
-    data = open(os.path.join(repo_dir, 'data/raw/uniprot_table_merged.txt'), 'w')
+    insulin_edited = open(os.path.join(repo_dir,
+        'data/interim/insulin_table.txt'), 'r')
+    not_insulin_edited = open(os.path.join(repo_dir,
+        'data/interim/not_insulin_table.txt'), 'r')
+    data = open(os.path.join(repo_dir,
+        'data/interim/uniprot_table_merged.txt'), 'w')
 
     for file in [insulin_edited, not_insulin_edited]:
         data.write(file.read())
@@ -84,5 +90,5 @@ if __name__ == '__main__':
 
     # Delete intermediate files
     subprocess.run(['rm',
-        os.path.join(repo_dir, 'data/raw/insulin_table.txt'),
-        os.path.join(repo_dir, 'data/raw/not_insulin_table.txt')])
+        os.path.join(repo_dir, 'data/interim/insulin_table.txt'),
+        os.path.join(repo_dir, 'data/interim/not_insulin_table.txt')])

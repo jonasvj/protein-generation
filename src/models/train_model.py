@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 import os
-import sys
 import time
 import torch
 import pickle
 import numpy as np
 import pandas as pd
-from gru import GruNet
-from lstm import LstmNet
-from wavenet import WaveNet
 from torch.utils import data
-from wavenetX import WaveNetX
-from transformer import TransformerModel
-from utils import (SequenceDataset, custom_collate_fn, train_model_cli, 
+from src.models import GruNet, LstmNet, WaveNet, WaveNetX, TransformerModel
+from src.utils import (SequenceDataset, custom_collate_fn, train_model_cli, 
     get_repo_dir, get_device, set_seeds)
 
 if __name__ == '__main__':
@@ -233,7 +228,8 @@ if __name__ == '__main__':
             print('Training time: {}, Validation time: {}\n'.format(
                 round(train_end - train_start), round(val_end - val_start)))
     
-    torch.save(net, os.path.join(repo_dir, 'models/' + output_file + '.pt'))
+    torch.save(net, os.path.join(
+        repo_dir, 'models/' + output_file + '_pytorch_model.pt'))
 
     # Convert defaultdicts to regular dicts that can be pickled
     token_to_idx = dict(train_data.token_to_idx)
@@ -254,7 +250,7 @@ if __name__ == '__main__':
     stats_dict['n_parameters'] = sum(
         p.numel() for p in net.parameters() if p.requires_grad)
 
-    out_file = open(
-        os.path.join(repo_dir, 'models/' + output_file + '.pickle'), 'wb')
+    out_file = open(os.path.join(
+        repo_dir, 'models/' + output_file + '_stats_dict.pickle'), 'wb')
     pickle.dump(stats_dict, out_file, protocol=pickle.HIGHEST_PROTOCOL)
     out_file.close()

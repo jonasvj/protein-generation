@@ -104,9 +104,11 @@ class WaveNet(nn.Module):
                                         kernel_size=self.kernel_size,
                                         dilation=1)
 
-        self.dilations = [2**i for i in range(self.n_dilations)]*self.n_repeats
         self.residual_blocks = nn.ModuleList()
-
+        
+        self.dilations = [2**i for i in range(self.n_dilations)]*self.n_repeats
+        self.dilations = self.dilations[1:]
+        
         for dilation in self.dilations:
             self.residual_blocks.append(
                 ResidualBlock(residual_channels=self.residual_channels,
