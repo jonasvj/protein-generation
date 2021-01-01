@@ -6,9 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from sklearn.manifold import TSNE
-from src.utils import get_repo_dir, set_seeds
+from src.utils import get_repo_dir, set_seeds, set_font_sizes
 
-def embedding_plot(emb, test_results, model_name):
+def embedding_plot(emb, test_results, model_name, include_legend=True):
     """Plot sequence embeddings"""
     fig, ax = plt.subplots(figsize=(8,6))
 
@@ -27,7 +27,6 @@ def embedding_plot(emb, test_results, model_name):
     scatter = ax.scatter(emb[:, 0], emb[:, 1],
                         c=colors,
                         cmap=plt.get_cmap("tab10"),
-                        s=2,
                         alpha=0.8)
     ax.set_xlabel('t-SNE component 1')
     ax.set_ylabel('t-SNE component 2')
@@ -38,8 +37,9 @@ def embedding_plot(emb, test_results, model_name):
         markers = np.insert(markers, 2, mlines.Line2D([], [], marker='o',
             linestyle='', alpha=0.8, markeredgecolor='C2', color='C2'))
     
-    plt.legend(markers, labels, loc=0,
-        borderaxespad=0.1, title='Molecular function', framealpha=0.6)
+    if include_legend is True:
+        plt.legend(markers, labels, loc=0,
+            borderaxespad=0.1, title='Molecular function', framealpha=0.6)
 
     ax.set_title(model_name)
     plt.tight_layout()
@@ -50,6 +50,7 @@ if __name__ == '__main__':
     seed = 42
     set_seeds(seed)
     repo_dir = get_repo_dir()
+    set_font_sizes(small=18, medium=18, large=18)
     model_name = sys.argv[1]
 
     # Load data
@@ -66,8 +67,8 @@ if __name__ == '__main__':
     X_emb_2 = TSNE(n_components=2, random_state=seed).fit_transform(emb_2)
 
     # Plot sequence embeddings
-    emb_plot_1 = embedding_plot(X_emb_1, test_results, model_name)
-    emb_plot_2 = embedding_plot(X_emb_2, test_results, model_name)
+    emb_plot_1 = embedding_plot(X_emb_1, test_results, model_name, True)
+    emb_plot_2 = embedding_plot(X_emb_2, test_results, model_name, True)
 
     # Save figuress
     emb_plot_1.savefig(os.path.join(

@@ -6,6 +6,7 @@ import argparse
 import subprocess
 import numpy as np
 from torch.utils import data
+import matplotlib.pyplot as plt
 from collections import defaultdict
 
 class SequenceDataset(data.Dataset):
@@ -408,6 +409,16 @@ def load_pickle_obj(file_path):
     file.close()
 
     return obj
+
+def set_font_sizes(small=8, medium=10, large=12):
+    """Sets fontsizes of matplotlib figure"""
+    plt.rc('font', size=small)          # controls default text sizes
+    plt.rc('axes', titlesize=small)     # fontsize of the axes title
+    plt.rc('axes', labelsize=medium)    # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=small)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize=small)    # fontsize of the tick labels
+    plt.rc('legend', fontsize=small)    # legend fontsize
+    plt.rc('figure', titlesize=large)   # fontsize of the figure title
 
 if __name__ == '__main__':
     pass

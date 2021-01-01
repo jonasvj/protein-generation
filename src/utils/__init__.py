@@ -6,3 +6,4 @@ from .utils import get_device
 from .utils import set_seeds
 from .utils import random_split
 from .utils import load_pickle_obj
+from .utils import set_font_sizes

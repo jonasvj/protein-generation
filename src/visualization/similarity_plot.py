@@ -4,7 +4,7 @@ import sys
 import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
-from src.utils import get_repo_dir
+from src.utils import get_repo_dir, set_font_sizes
 
 def similarity_plot(context_props, mutation_rate, model_name,
     gen_results, mut_results):
@@ -18,7 +18,7 @@ def similarity_plot(context_props, mutation_rate, model_name,
     mut_std = np.nanstd(mut_results, axis=0)
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(8,4))
+    fig, ax = plt.subplots(figsize=(8,6))
     ax.errorbar(context_props, gen_mean, yerr=gen_std, alpha=.75, fmt='.:',
         capsize=3, capthick=1, c='C0', label='Generated')
     ax.errorbar(context_props, mut_mean, yerr=mut_std, alpha=.75, fmt='.:',
@@ -38,8 +38,9 @@ def similarity_plot(context_props, mutation_rate, model_name,
 
 
 if __name__ == '__main__':
-    model_name = sys.argv[1]
     repo_dir = get_repo_dir()
+    set_font_sizes(small=18, medium=18, large=18)
+    model_name = sys.argv[1]
 
     gen_results = np.load(os.path.join(
         repo_dir, 'models/' + model_name + '_similarity_scores_generation.npy'))
